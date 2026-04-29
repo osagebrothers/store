@@ -86,6 +86,46 @@ const FRONT_TEXT_DECAL: Decal = {
   style: 'gold-embroidery',
 };
 
+// Back: eagle (viewer-left), crossed feathers (center, above snapback), panda (viewer-right).
+const BACK_EAGLE_DECAL: Decal = {
+  id: 'back-eagle',
+  type: 'image',
+  url: `${BASE_URL}images/eagle_decal.png`,
+  position: [-30, 30, -88],
+  rotation: [0, Math.PI, 0],
+  scale: [34, 34, 50],
+  normal: [0, 0, -1],
+  spin: Math.PI,
+  zone: 'back',
+  style: 'embroidery',
+};
+
+const BACK_FEATHERS_DECAL: Decal = {
+  id: 'back-crossed-feathers',
+  type: 'image',
+  url: `${BASE_URL}images/feathers_decal.png`,
+  position: [0, 44, -88],
+  rotation: [0, Math.PI, 0],
+  scale: [30, 30, 50],
+  normal: [0, 0, -1],
+  spin: Math.PI,
+  zone: 'back',
+  style: 'gold-embroidery',
+};
+
+const BACK_PANDA_DECAL: Decal = {
+  id: 'back-panda',
+  type: 'image',
+  url: `${BASE_URL}images/panda_decal.png`,
+  position: [30, 30, -88],
+  rotation: [0, Math.PI, 0],
+  scale: [34, 34, 50],
+  normal: [0, 0, -1],
+  spin: Math.PI,
+  zone: 'back',
+  style: 'embroidery',
+};
+
 export function buildHat(colorway: Colorway): HatConfig {
   const isBlack = colorway === 'black';
   return {
@@ -100,7 +140,13 @@ export function buildHat(colorway: Colorway): HatConfig {
     textColor: '#FFD700',
     textStyle: 'gold-embroidery',
     size: 'M',
-    decals: [FRONT_TEXT_DECAL, INSIDE_LABEL_DECAL],
+    decals: [
+      FRONT_TEXT_DECAL,
+      BACK_EAGLE_DECAL,
+      BACK_FEATHERS_DECAL,
+      BACK_PANDA_DECAL,
+      INSIDE_LABEL_DECAL,
+    ],
   };
 }
 
