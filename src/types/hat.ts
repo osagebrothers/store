@@ -92,7 +92,7 @@ export function buildHat(colorway: Colorway): HatConfig {
     id: `osage-${colorway}`,
     colorway,
     hatColor: isBlack ? '#000000' : '#FFFFFF',
-    bandColor: '#FFFFFF',
+    bandColor: isBlack ? '#000000' : '#FFFFFF',
     text: '',
     backText: '',
     brimText: '',
