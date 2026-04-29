@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: osage-store
+spec:
+  ingressClassName: hanzo
+  tls:
+    - hosts:
+        - osagebrothers.com
+        - www.osagebrothers.com
+      secretName: osagebrothers-com-tls
+  rules:
+    - host: osagebrothers.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: osage-store
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: osage-store-www-redirect
+  annotations:
+    hanzo.ingress/permanent-redirect: https://osagebrothers.com
+spec:
+  ingressClassName: hanzo
+  tls:
+    - hosts:
+        - www.osagebrothers.com
+      secretName: osagebrothers-com-tls
+  rules:
+    - host: www.osagebrothers.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: osage-store
+                port:
+                  number: 80

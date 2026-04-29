@@ -56,8 +56,6 @@ export default function Cart() {
       const cancelUrl = `${window.location.origin}${window.location.pathname}?checkout=cancel`;
 
       const session = await createCheckoutSession({
-        company: 'ADXYZ Inc',
-        providerHint: 'stripe',
         currency: 'USD',
         customer: { fullName, email, address, city, zip },
         items: items.map((item) => ({
@@ -129,8 +127,8 @@ export default function Cart() {
                 style={{ backgroundColor: item.hat.hatColor }}
               />
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{item.hat.text || 'Custom Item'}</p>
-                <p className="text-xs text-muted-foreground">Size: {item.hat.size} · Font: {item.hat.font}</p>
+                <p className="font-medium truncate">MEGA Hat — {item.hat.colorway === 'black' ? 'Black' : 'White'}</p>
+                <p className="text-xs text-muted-foreground">Size: {item.hat.size}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.hat.id, item.quantity - 1)}>
@@ -182,15 +180,8 @@ export default function Cart() {
               {isCheckingOut ? 'Starting checkout...' : 'Checkout'}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              Checkout is routed through Hanzo Commerce (provider-agnostic).
+              Secure checkout at pay.osagebrothers.com
             </p>
-            <Button
-              variant="ghost"
-              className="w-full h-9 text-xs"
-              onClick={() => { clearCart(); setOrderStatus('paid'); }}
-            >
-              Mark as Paid (Demo)
-            </Button>
           </div>
         </div>
       </div>

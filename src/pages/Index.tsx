@@ -30,7 +30,6 @@ const TRANSLATIONS = [
   { text: 'Fanya Dunia Kuwa Kuu Tena', lang: 'Kiswahili' },
   { text: 'Jadikan Bumi Hebat Lagi', lang: 'Bahasa' },
   { text: 'Gawing Dakila Muli ang Mundo', lang: 'Filipino' },
-  { text: 'ធ្វើឱ្យផែនដីអស្ចារ្យម្ដងទៀត', lang: 'ភាសាខ្មែរ' },
   { text: 'زمین را دوباره بزرگ کنیم', lang: 'فارسی' },
   { text: 'ምድርን እንደገና ታላቅ እናድርግ', lang: 'አማርኛ' },
   { text: 'Fac Terram Iterum Magnam', lang: 'Latīna' },
@@ -50,9 +49,9 @@ export default function Index() {
 
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const preorderPrice = getHatPrice(config);
+  const price = getHatPrice(config);
 
-  const handlePreorder = () => {
+  const handleBuy = () => {
     addItem(config);
     navigate('/cart');
   };
@@ -153,16 +152,16 @@ export default function Index() {
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={handlePreorder}
+              onClick={handleBuy}
               className="h-11 px-8 rounded-full bg-white text-black text-xs tracking-[0.2em] uppercase font-black hover:bg-white/90 transition-colors shadow-[0_12px_44px_rgba(0,0,0,0.35)] flex items-center"
             >
-              Pre-order ${preorderPrice.toFixed(0)}
+              Buy ${price.toFixed(0)}
             </button>
             <Link
-              to="/designer"
+              to="/collection"
               className="h-11 px-8 rounded-full border border-white/25 text-white text-xs tracking-[0.2em] uppercase font-black hover:border-white/50 hover:bg-white/5 transition-colors flex items-center"
             >
-              Design Your Own
+              Black or White
             </Link>
             <a
               href="#movement"
@@ -233,31 +232,27 @@ export default function Index() {
             <div>
               <p className="text-[10px] tracking-[0.4em] uppercase text-black/30 mb-4">Wear the Mission</p>
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-[0.92] mb-6">
-                MEGA Hat Shop
+                The MEGA Hat
               </h2>
               <p className="text-base text-black/45 leading-relaxed mb-6">
-                Gold embroidery on premium ball caps.
-                A portion of every purchase goes directly to non-profits and impact causes worldwide.
+                Gold embroidery on a premium ball cap. Black or white. $50.
+                "Out, Out" inside label.
               </p>
               <p className="text-base text-black/45 leading-relaxed mb-6">
-                Create yours with custom text, colors, country flags, and decals — or choose a classic.
-              </p>
-              <p className="text-sm text-black/30 leading-relaxed mb-8">
-                White-on-white and black-on-black special editions: $80.
-                New designs ship after 1,000 pre-orders.
+                A portion of every purchase goes directly to non-profits and impact causes worldwide.
               </p>
               <div className="flex items-center gap-3 flex-wrap">
                 <Link
-                  to="/designer"
+                  to="/collection"
                   className="h-11 px-8 rounded-full bg-black text-white text-xs tracking-[0.2em] uppercase font-black hover:bg-black/80 transition-colors flex items-center"
                 >
-                  Open Designer
+                  Pick Your Hat
                 </Link>
                 <Link
-                  to="/collection"
+                  to="/designer"
                   className="h-11 px-6 rounded-full border border-black/20 text-black/60 text-xs tracking-[0.2em] uppercase hover:text-black hover:border-black/40 transition-colors flex items-center"
                 >
-                  View Collection
+                  View in 3D
                 </Link>
               </div>
             </div>
@@ -298,16 +293,16 @@ export default function Index() {
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <a
-              href="mailto:support@megamovement.org"
+              href="mailto:support@osagebrothers.com"
               className="h-11 px-8 rounded-full bg-white text-black text-xs tracking-[0.2em] uppercase font-black hover:bg-white/90 transition-colors inline-flex items-center"
             >
               Get Involved
             </a>
             <Link
-              to="/designer"
+              to="/collection"
               className="h-11 px-6 rounded-full border border-white/20 text-white/70 text-xs tracking-[0.2em] uppercase hover:text-white hover:border-white/40 transition-colors inline-flex items-center"
             >
-              Design a Hat
+              Shop the Hat
             </Link>
           </div>
         </div>

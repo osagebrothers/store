@@ -1,135 +1,94 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import HatScene from '@/components/HatScene';
-import { CAMERA_PRESETS } from '@/components/HatScene';
-import CustomizationPanel from '@/components/CustomizationPanel';
-import { DEFAULT_HAT, HatConfig, Decal } from '@/types/hat';
-import { applySiteFont, ensureFontLoaded } from '@/lib/fonts';
-import { decodeDesign } from '@/lib/designShare';
-import useFabricCanvas from '@/hooks/useFabricCanvas';
-import { toFontStack } from '@/lib/fonts';
+import { Button } from '@/components/ui/button';
+import { useCart } from '@/store/cartStore';
+import { Colorway, HAT_BLACK, HAT_PRICE, HAT_WHITE } from '@/types/hat';
 
 export default function Designer() {
-  const [config, setConfig] = useState<HatConfig>({ ...DEFAULT_HAT });
-  const [selectedDecalId, setSelectedDecalId] = useState<string | null>(null);
-  const [placementMode, setPlacementMode] = useState(false);
-  const [editingOnSurface, setEditingOnSurface] = useState(false);
-  const [cameraPreset, setCameraPreset] = useState(-1);
-  const [presetTrigger, setPresetTrigger] = useState(0);
+  const [colorway, setColorway] = useState<Colorway>('black');
+  const navigate = useNavigate();
+  const { addItem } = useCart();
 
-  // Preview mode disables Fabric.js (used for screenshots/SSR/headless captures)
-  const isPreviewMode = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('preview');
+  const config = useMemo(() => (colorway === 'black' ? HAT_BLACK : HAT_WHITE), [colorway]);
 
-  // Fabric.js canvas for direct text manipulation on 3D surface
-  const fabric = useFabricCanvas(config.hatColor);
-
-  useEffect(() => {
-    const encoded = new URLSearchParams(window.location.search).get('d');
-    if (!encoded) return;
-    const shared = decodeDesign(encoded);
-    if (!shared) return;
-
-    setConfig((prev) => ({
-      ...prev,
-      ...shared,
-      id: shared.id || prev.id || crypto.randomUUID(),
-      decals: Array.isArray(shared.decals) ? shared.decals : prev.decals,
-    }));
-  }, []);
-
-  useEffect(() => {
-    applySiteFont(config.font);
-    void ensureFontLoaded(config.font);
-  }, [config.font]);
-
-  // Sync config text/color/font/style to Fabric canvas
-  useEffect(() => {
-    if (!fabric.canvas) return;
-    fabric.setText(config.text, {
-      fill: config.textColor,
-      fontFamily: toFontStack(config.font),
-      textStyle: config.textStyle,
-    });
-  }, [config.text, config.textColor, config.font, config.textStyle, fabric.canvas, fabric.setText]);
-
-  const handleDecalUpdate = (id: string, updates: Partial<Decal>) => {
-    setConfig(prev => ({
-      ...prev,
-      decals: prev.decals.map(d => d.id === id ? { ...d, ...updates } : d)
-    }));
-  };
-
-  const handleConfigChange = (newConfig: HatConfig) => {
-    setConfig(newConfig);
-    if (selectedDecalId && !newConfig.decals.find(d => d.id === selectedDecalId)) {
-      setSelectedDecalId(null);
-      setPlacementMode(false);
-    }
-  };
-
-  const handleSelectDecal = (id: string | null) => {
-    setSelectedDecalId(id);
-    if (!id) setPlacementMode(false);
+  const handleAdd = () => {
+    addItem(config);
+    navigate('/cart');
   };
 
   return (
-    <main className="h-[100dvh] bg-black overflow-hidden pt-12">
-      <div className="flex flex-col lg:flex-row h-[calc(100dvh-3rem)]">
-        {/* 3D Preview */}
-        <div className="flex-1 relative">
+    <main className="min-h-[100dvh] bg-black text-white pt-12">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100dvh-3rem)]">
+        <div className="flex-1 relative h-[60vh] lg:h-auto">
           <HatScene
             hatColor={config.hatColor}
             bandColor={config.bandColor}
-            texture={config.texture}
             text={config.text}
             backText={config.backText}
             brimText={config.brimText}
             textColor={config.textColor}
             textStyle={config.textStyle}
             font={config.font}
-            flagCode={config.flagCode}
             decals={config.decals}
-            onDecalUpdate={handleDecalUpdate}
-            selectedDecalId={selectedDecalId || undefined}
-            onDecalSelect={handleSelectDecal}
-            placementMode={placementMode}
-            onPlacementComplete={() => setPlacementMode(false)}
-            fabricCanvas={isPreviewMode ? null : fabric.canvas}
-            editingOnSurface={editingOnSurface}
-            onEditingSurface={isPreviewMode ? undefined : setEditingOnSurface}
-            cameraPreset={cameraPreset}
-            cameraPresetTrigger={presetTrigger}
+            autoRotate
             className="w-full h-full"
           />
-          {/* Camera angle preset pill bar */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0 rounded-full border border-white/10 bg-black/70 backdrop-blur-sm p-0.5">
-            {CAMERA_PRESETS.map((preset, i) => (
-              <button
-                key={preset.label}
-                onClick={() => { setCameraPreset(i); setPresetTrigger(t => t + 1); }}
-                className={`px-2.5 py-1 text-[9px] uppercase tracking-wider rounded-full transition-all ${
-                  cameraPreset === i
-                    ? 'bg-white/15 text-yellow-300 shadow-sm'
-                    : 'text-white/45 hover:text-white/80 hover:bg-white/5'
-                }`}
-                title={preset.label}
-              >
-                {preset.shortLabel}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Panel */}
-        <div className="lg:w-[360px] border-l border-white/5 overflow-y-auto bg-black">
-          <CustomizationPanel
-            config={config}
-            onChange={handleConfigChange}
-            selectedDecalId={selectedDecalId || undefined}
-            onSelectDecal={handleSelectDecal}
-            onStartPlacement={() => setPlacementMode(true)}
-          />
-        </div>
+        <aside className="lg:w-[360px] border-l border-white/5 p-8 space-y-8">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Osage Brothers</p>
+            <h1 className="text-2xl font-bold tracking-tight">MEGA Hat</h1>
+            <p className="text-sm text-white/50 mt-1">Make Earth Great Again</p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">Colorway</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setColorway('black')}
+                className={`h-14 rounded-xl border transition-colors text-xs uppercase tracking-[0.2em] font-bold ${
+                  colorway === 'black'
+                    ? 'border-white bg-white text-black'
+                    : 'border-white/15 text-white/60 hover:border-white/30'
+                }`}
+              >
+                Black
+              </button>
+              <button
+                onClick={() => setColorway('white')}
+                className={`h-14 rounded-xl border transition-colors text-xs uppercase tracking-[0.2em] font-bold ${
+                  colorway === 'white'
+                    ? 'border-white bg-white text-black'
+                    : 'border-white/15 text-white/60 hover:border-white/30'
+                }`}
+              >
+                White
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">Details</p>
+            <ul className="text-sm text-white/65 space-y-1.5 leading-relaxed">
+              <li>Premium ball cap</li>
+              <li>Gold embroidery — front</li>
+              <li>"Out, Out" inside label</li>
+              <li>One size, structured fit</li>
+            </ul>
+          </div>
+
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex items-baseline justify-between mb-4">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/40">Price</span>
+              <span className="text-3xl font-bold">${HAT_PRICE.toFixed(0)}</span>
+            </div>
+            <Button onClick={handleAdd} className="w-full h-12 text-sm font-bold tracking-[0.15em] uppercase">
+              Add to Cart
+            </Button>
+          </div>
+        </aside>
       </div>
     </main>
   );

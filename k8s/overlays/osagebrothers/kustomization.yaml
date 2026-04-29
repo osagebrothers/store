@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: osage
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - ingress.yaml
+  - certificate.yaml
+
+patches:
+  - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: mega-store
+  - path: service-patch.yaml
+    target:
+      kind: Service
+      name: mega-store
+
+# Rename mega-store → osage-store
+nameSuffix: ""
+namePrefix: ""
+
+# Remap image
+images:
+  - name: ghcr.io/ad-xyz/mega-store
+    newName: ghcr.io/hanzoai/osage-store
+    newTag: latest
+
+# Rename resources to osage-store
+replacements:
+  - source:
+      kind: Deployment
+      name: mega-store
+      fieldPath: metadata.name
+    targets:
+      - select:
+          kind: Service
+          name: mega-store
+        fieldPaths:
+          - spec.selector.app

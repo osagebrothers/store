@@ -25,7 +25,7 @@ page.on('response', (res) => {
 });
 
 // Support both local dev server and preview builds
-const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:4173';
+const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const designerPath = process.env.DESIGNER_PATH || '/designer';
 // Use preview mode to skip Fabric.js (uses projected decals for text, reliable in headless)
 const url = `${baseUrl}${designerPath}?preview`;

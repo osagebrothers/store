@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { CartItem, HatConfig } from '@/types/hat';
+import { CartItem, HatConfig, HAT_PRICE } from '@/types/hat';
 
 interface CartContextType {
   items: CartItem[];
@@ -13,27 +13,8 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-const STANDARD_HAT_PRICE = 50.0;
-const SPECIAL_EDITION_PRICE = 80.0;
-
-function normalizeColor(color?: string): string {
-  return (color || '').trim().toLowerCase();
-}
-
-function isWhite(color?: string): boolean {
-  const c = normalizeColor(color);
-  return c === '#fff' || c === '#ffffff' || c === 'white' || c === 'rgb(255,255,255)';
-}
-
-function isBlack(color?: string): boolean {
-  const c = normalizeColor(color);
-  return c === '#000' || c === '#000000' || c === 'black' || c === 'rgb(0,0,0)';
-}
-
-function getHatPrice(hat: HatConfig): number {
-  const whiteOnWhite = isWhite(hat.hatColor) && isWhite(hat.textColor);
-  const blackOnBlack = isBlack(hat.hatColor) && isBlack(hat.textColor);
-  return whiteOnWhite || blackOnBlack ? SPECIAL_EDITION_PRICE : STANDARD_HAT_PRICE;
+export function getHatPrice(_hat: HatConfig): number {
+  return HAT_PRICE;
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -41,16 +22,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (hat: HatConfig) => {
     const id = crypto.randomUUID();
-    setItems(prev => [...prev, { hat: { ...hat, id }, quantity: 1 }]);
+    setItems((prev) => [...prev, { hat: { ...hat, id }, quantity: 1 }]);
   };
 
   const removeItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.hat.id !== id));
+    setItems((prev) => prev.filter((i) => i.hat.id !== id));
   };
 
   const updateQuantity = (id: string, quantity: number) => {
     if (quantity < 1) return removeItem(id);
-    setItems(prev => prev.map(i => i.hat.id === id ? { ...i, quantity } : i));
+    setItems((prev) => prev.map((i) => (i.hat.id === id ? { ...i, quantity } : i)));
   };
 
   const clearCart = () => setItems([]);
@@ -59,7 +40,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalPrice = items.reduce((sum, i) => sum + i.quantity * getHatPrice(i.hat), 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}>
+    <CartContext.Provider
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}
+    >
       {children}
     </CartContext.Provider>
   );
@@ -71,4 +54,4 @@ export function useCart() {
   return ctx;
 }
 
-export { STANDARD_HAT_PRICE, SPECIAL_EDITION_PRICE, getHatPrice };
+export { HAT_PRICE };

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, User as UserIcon, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 
 function DoveLogo({ className }: { className?: string }) {
   return (
@@ -13,6 +14,7 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signIn } = useAuth();
 
   const isEmbedded =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('embed') === '1';
@@ -74,17 +76,20 @@ export default function Navbar() {
     if (typeof window === 'undefined') return;
 
     const url = window.location.href;
-    const title = document.title || 'MEGA';
+    const title = document.title || 'Osage Brothers';
 
     try {
-      if (typeof navigator !== 'undefined' && 'share' in navigator) {
-        // @ts-expect-error - navigator.share is not in TS lib for all targets
-        await navigator.share({ title, url });
+      const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & {
+        share?: (data: ShareData) => Promise<void>;
+      }) : null;
+
+      if (nav?.share) {
+        await nav.share({ title, url });
         return;
       }
 
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
+      if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
         toast({ title: 'Link copied', description: 'Paste it anywhere.' });
         return;
       }
@@ -145,6 +150,22 @@ export default function Navbar() {
             >
               Share
             </button>
+            {user ? (
+              <Link
+                to="/account"
+                className="text-white/60 hover:text-white transition-colors"
+                aria-label="Account"
+              >
+                <UserIcon className="h-4 w-4" />
+              </Link>
+            ) : (
+              <button
+                onClick={() => signIn(pathname)}
+                className="text-[10px] font-bold tracking-[0.25em] uppercase text-white/50 hover:text-white transition-colors"
+              >
+                Sign In
+              </button>
+            )}
           </div>
 
           <button
@@ -200,6 +221,27 @@ export default function Navbar() {
             >
               Share
             </button>
+            {user ? (
+              <Link
+                to="/account"
+                onClick={() => setMobileOpen(false)}
+                className={`block px-4 py-3 rounded-xl text-sm tracking-[0.15em] uppercase transition-colors font-black ${
+                  pathname === '/account' ? 'bg-white/10 text-white' : 'text-white/75 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Account
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  signIn(pathname);
+                }}
+                className="block w-full text-left px-4 py-3 rounded-xl text-sm tracking-[0.15em] uppercase transition-colors text-white/75 hover:text-white hover:bg-white/5 font-black"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       )}
