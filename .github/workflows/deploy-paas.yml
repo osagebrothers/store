@@ -48,6 +48,7 @@ env:
   PAAS_API: ${{ vars.PAAS_API_URL }}
   ORG_SLUG: ${{ github.event.inputs.org_slug || 'adxyz' }}
   PROJECT_SLUG: ${{ github.event.inputs.project_slug || 'megastore' }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   deploy:
@@ -65,7 +66,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
