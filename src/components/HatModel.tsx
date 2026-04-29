@@ -653,8 +653,10 @@ export default function HatModel({
     mcCenter.z + mcSize.z * 0.04,
   ];
 
-  const frontTextScale: [number, number, number] = [mcSize.x * 0.9, mcSize.y * 0.55, Math.max(mcSize.z * 0.8, 80)];
-  const backTextScale: [number, number, number] = [mcSize.x * 0.58, mcSize.y * 0.32, Math.max(mcSize.z * 0.5, 40)];
+  // Projection-box Z kept small so text doesn't pierce through to the inner crown surface.
+  const projectionDepth = Math.max(mcSize.z * 0.04, 4);
+  const frontTextScale: [number, number, number] = [mcSize.x * 0.9, mcSize.y * 0.55, projectionDepth];
+  const backTextScale: [number, number, number] = [mcSize.x * 0.58, mcSize.y * 0.32, projectionDepth];
   const flagWidth = mcSize.x * 0.22;
   const flagImage = flagTexture?.image as { width?: number; height?: number } | undefined;
   const flagAspect =

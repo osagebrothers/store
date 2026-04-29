@@ -66,7 +66,7 @@ const INSIDE_LABEL_DECAL: Decal = {
   url: `${BASE_URL}images/inside_label.png`,
   position: [0, 20, 60],
   rotation: [0, 0, 0],
-  scale: [55, 30, 55],
+  scale: [55, 30, 6],
   normal: [0, -1, 0.3],
   spin: 0,
   zone: 'inside',
@@ -79,7 +79,7 @@ const FRONT_TEXT_DECAL: Decal = {
   url: `${BASE_URL}images/mega_front_text.png`,
   position: [0, 58, 85],
   rotation: [0, 0, 0],
-  scale: [105, 50, 105],
+  scale: [105, 50, 6],
   normal: [0, 0.15, 1],
   spin: 0,
   zone: 'front',
@@ -91,13 +91,15 @@ const FRONT_TEXT_DECAL: Decal = {
 // rotation [0, Math.PI, 0] orients the projection box to face the back; spin: 0 keeps the
 // texture upright (spin: Math.PI was rotating it 180° which made everything upside down).
 // Animals are pushed out to x=±46 so they sit on the lower side panels and clear the snapback gap.
+// Projection-box Z is intentionally small (~6) so the decal is stamped only on the
+// outer shell; a deeper box bleeds through onto the inside of the cap.
 const BACK_EAGLE_DECAL: Decal = {
   id: 'back-eagle',
   type: 'image',
   url: `${BASE_URL}images/eagle_decal.png`,
   position: [34, 26, -84],
   rotation: [0, Math.PI, 0],
-  scale: [34, 24, 50],
+  scale: [34, 24, 6],
   normal: [0, 0, -1],
   spin: 0,
   zone: 'back',
@@ -110,7 +112,7 @@ const BACK_FEATHERS_DECAL: Decal = {
   url: `${BASE_URL}images/feathers_decal.png`,
   position: [0, 50, -88],
   rotation: [0, Math.PI, 0],
-  scale: [34, 38, 50],
+  scale: [34, 38, 6],
   normal: [0, 0, -1],
   spin: 0,
   zone: 'back',
@@ -123,7 +125,7 @@ const BACK_PANDA_DECAL: Decal = {
   url: `${BASE_URL}images/panda_decal.png`,
   position: [-34, 26, -84],
   rotation: [0, Math.PI, 0],
-  scale: [28, 28, 50],
+  scale: [28, 28, 6],
   normal: [0, 0, -1],
   spin: 0,
   zone: 'back',
