@@ -653,9 +653,10 @@ export default function HatModel({
     mcCenter.z + mcSize.z * 0.04,
   ];
 
-  // Projection-box Z must enclose surface curvature (~10%) but stay under shell thickness so
-  // the decal doesn't punch through onto the inner crown surface.
-  const projectionDepth = Math.max(mcSize.z * 0.12, 12);
+  // Projection-box Z covers ~30% of the cap depth — large enough to enclose surface
+  // curvature within each decal footprint reliably; smaller values produced empty
+  // DecalGeometry on the published build.
+  const projectionDepth = Math.max(mcSize.z * 0.3, 30);
   const frontTextScale: [number, number, number] = [mcSize.x * 0.9, mcSize.y * 0.55, projectionDepth];
   const backTextScale: [number, number, number] = [mcSize.x * 0.58, mcSize.y * 0.32, projectionDepth];
   const flagWidth = mcSize.x * 0.22;
