@@ -33,7 +33,7 @@ jobs:
       - run: pnpm build
         env:
           VITE_BASE_PATH: /
-          VITE_HANZO_COMMERCE_URL: https://commerce.hanzo.ai
+          VITE_HANZO_COMMERCE_URL: https://commerce-api.hanzo.ai
           VITE_HANZO_TENANT: osage
           VITE_IAM_URL: https://id.osagebrothers.com
       - run: cp dist/index.html dist/404.html

@@ -2,7 +2,7 @@ import { HatConfig } from '@/types/hat';
 
 const COMMERCE_URL = (
   (import.meta.env.VITE_HANZO_COMMERCE_URL as string | undefined)?.trim() ||
-  'https://commerce.hanzo.ai'
+  'https://commerce-api.hanzo.ai'
 ).replace(/\/$/, '');
 
 const TENANT = (import.meta.env.VITE_HANZO_TENANT as string | undefined)?.trim() || 'osage';
@@ -38,14 +38,14 @@ export interface CheckoutSessionResponse {
 export async function createCheckoutSession(
   request: CheckoutSessionRequest,
 ): Promise<CheckoutSessionResponse> {
-  const response = await fetch(`${COMMERCE_URL}/v1/checkout/sessions`, {
+  const response = await fetch(`${COMMERCE_URL}/api/v1/checkout/sessions`, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-Hanzo-Tenant': TENANT,
+      'X-IAM-Org-Id': TENANT,
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, tenant: TENANT, org: TENANT }),
   });
 
   if (!response.ok) {
