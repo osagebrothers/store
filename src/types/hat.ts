@@ -87,11 +87,12 @@ const FRONT_TEXT_DECAL: Decal = {
 };
 
 // Back: eagle (viewer-left), crossed feathers (center, above snapback), panda (viewer-right).
+// In back-of-hat camera view, world +X appears on viewer's LEFT, world -X on viewer's RIGHT.
 const BACK_EAGLE_DECAL: Decal = {
   id: 'back-eagle',
   type: 'image',
   url: `${BASE_URL}images/eagle_decal.png`,
-  position: [-30, 30, -88],
+  position: [30, 30, -88],
   rotation: [0, Math.PI, 0],
   scale: [34, 34, 50],
   normal: [0, 0, -1],
@@ -104,9 +105,9 @@ const BACK_FEATHERS_DECAL: Decal = {
   id: 'back-crossed-feathers',
   type: 'image',
   url: `${BASE_URL}images/feathers_decal.png`,
-  position: [0, 44, -88],
+  position: [0, 46, -88],
   rotation: [0, Math.PI, 0],
-  scale: [30, 30, 50],
+  scale: [36, 40, 50],
   normal: [0, 0, -1],
   spin: Math.PI,
   zone: 'back',
@@ -117,7 +118,7 @@ const BACK_PANDA_DECAL: Decal = {
   id: 'back-panda',
   type: 'image',
   url: `${BASE_URL}images/panda_decal.png`,
-  position: [30, 30, -88],
+  position: [-30, 30, -88],
   rotation: [0, Math.PI, 0],
   scale: [34, 34, 50],
   normal: [0, 0, -1],

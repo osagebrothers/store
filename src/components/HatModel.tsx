@@ -521,7 +521,9 @@ export default function HatModel({
           fabricHint.includes('cap') ||
           fabricHint.includes('visor') ||
           fabricHint.includes('liner') ||
-          fabricHint.includes('fabric');
+          fabricHint.includes('fabric') ||
+          fabricHint.includes('strap') ||
+          fabricHint.includes('adjust');
 
         if (isFabric) {
           const mat = original.clone();
