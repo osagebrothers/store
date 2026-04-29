@@ -32,7 +32,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
         env:
-          VITE_HANZO_COMMERCE_URL: https://commerce.hanzo.ai/api/v1
+          VITE_BASE_PATH: /
+          VITE_HANZO_COMMERCE_URL: https://commerce.hanzo.ai
+          VITE_HANZO_TENANT: osage
+          VITE_IAM_URL: https://id.osagebrothers.com
       - run: cp dist/index.html dist/404.html
 
       - uses: actions/upload-pages-artifact@v3
