@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import HatScene from '@/components/HatScene';
-import { DEFAULT_HAT } from '@/types/hat';
+import { HAT_BLACK, HAT_WHITE } from '@/types/hat';
 import { getHatPrice, useCart } from '@/store/cartStore';
-
-const config = DEFAULT_HAT;
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const TRANSLATIONS = [
   { text: 'Make Earth Great Again', lang: 'English' },
@@ -46,6 +45,9 @@ const TRANSLATIONS = [
 export default function Index() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
+
+  const scheme = useColorScheme();
+  const config = scheme === 'dark' ? HAT_BLACK : HAT_WHITE;
 
   const navigate = useNavigate();
   const { addItem } = useCart();

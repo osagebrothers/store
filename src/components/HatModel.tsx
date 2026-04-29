@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect, useLayoutEffect, useState } from 'react';
 import { useFrame, useThree, useLoader, ThreeEvent } from '@react-three/fiber';
 import { useGLTF, Decal as ProjectedDecal } from '@react-three/drei';
 import * as THREE from 'three';
@@ -506,7 +506,7 @@ export default function HatModel({
 
   // leafLeftTex, leafRightTex, khmerBrimTex are managed by useLoader – no manual dispose needed
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     capMesh.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;

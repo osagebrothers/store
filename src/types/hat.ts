@@ -86,17 +86,20 @@ const FRONT_TEXT_DECAL: Decal = {
   style: 'gold-embroidery',
 };
 
-// Back: eagle (viewer-left), crossed feathers (center, above snapback), panda (viewer-right).
+// Back: eagle (viewer-left), crossed feathers (center, above snapback opening), panda (viewer-right).
 // In back-of-hat camera view, world +X appears on viewer's LEFT, world -X on viewer's RIGHT.
+// rotation [0, Math.PI, 0] orients the projection box to face the back; spin: 0 keeps the
+// texture upright (spin: Math.PI was rotating it 180° which made everything upside down).
+// Animals are pushed out to x=±46 so they sit on the lower side panels and clear the snapback gap.
 const BACK_EAGLE_DECAL: Decal = {
   id: 'back-eagle',
   type: 'image',
   url: `${BASE_URL}images/eagle_decal.png`,
-  position: [30, 18, -88],
+  position: [46, 22, -82],
   rotation: [0, Math.PI, 0],
-  scale: [44, 30, 50],
+  scale: [42, 30, 50],
   normal: [0, 0, -1],
-  spin: Math.PI,
+  spin: 0,
   zone: 'back',
   style: 'embroidery',
 };
@@ -105,11 +108,11 @@ const BACK_FEATHERS_DECAL: Decal = {
   id: 'back-crossed-feathers',
   type: 'image',
   url: `${BASE_URL}images/feathers_decal.png`,
-  position: [0, 46, -88],
+  position: [0, 50, -88],
   rotation: [0, Math.PI, 0],
-  scale: [36, 40, 50],
+  scale: [34, 38, 50],
   normal: [0, 0, -1],
-  spin: Math.PI,
+  spin: 0,
   zone: 'back',
   style: 'gold-embroidery',
 };
@@ -118,11 +121,11 @@ const BACK_PANDA_DECAL: Decal = {
   id: 'back-panda',
   type: 'image',
   url: `${BASE_URL}images/panda_decal.png`,
-  position: [-30, 30, -88],
+  position: [-46, 22, -82],
   rotation: [0, Math.PI, 0],
   scale: [34, 34, 50],
   normal: [0, 0, -1],
-  spin: Math.PI,
+  spin: 0,
   zone: 'back',
   style: 'embroidery',
 };

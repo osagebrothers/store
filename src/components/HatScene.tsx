@@ -2,7 +2,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, ContactShadows, Environment } from '@react-three/drei';
 import { Canvas as FabricCanvas } from 'fabric';
 import HatModel from './HatModel';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import * as THREE from 'three';
 
 import { Decal, TextStyle } from '@/types/hat';
@@ -133,6 +133,8 @@ export default function HatScene({
   cameraPreset = -1,
   cameraPresetTrigger = 0,
 }: HatSceneProps) {
+  const [paused, setPaused] = useState(false);
+  const effectiveAutoRotate = autoRotate && !paused;
   return (
     <div className={`relative ${className || ''}`}>
       <Canvas
@@ -168,7 +170,7 @@ export default function HatScene({
             onDecalSelect={onDecalSelect}
             placementMode={placementMode}
             onPlacementComplete={onPlacementComplete}
-            autoRotate={autoRotate}
+            autoRotate={effectiveAutoRotate}
             fabricCanvas={fabricCanvas}
             onEditingSurface={onEditingSurface}
           />
@@ -184,7 +186,7 @@ export default function HatScene({
             target={[0, 0.08, 0]}
             enabled={!placementMode && !editingOnSurface}
             enablePan={false}
-            enableZoom={!autoRotate}
+            enableZoom={!effectiveAutoRotate}
             minDistance={1.8}
             maxDistance={5}
             enableDamping
@@ -195,6 +197,19 @@ export default function HatScene({
           />
         </Suspense>
       </Canvas>
+      {autoRotate && (
+        <button
+          type="button"
+          onClick={() => setPaused((p) => !p)}
+          aria-pressed={paused}
+          aria-label={paused ? 'Resume rotation' : 'Pause rotation'}
+          data-testid="rotation-toggle"
+          className="absolute right-4 top-4 z-10 inline-flex h-9 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3 text-[10px] uppercase tracking-[0.2em] text-white/85 backdrop-blur transition-colors hover:border-white/50 hover:bg-black/75"
+        >
+          <span aria-hidden="true">{paused ? '▶' : '⏸'}</span>
+          <span>{paused ? 'Play' : 'Pause'}</span>
+        </button>
+      )}
       {placementMode && (
         <div className="absolute left-4 bottom-4 z-10 rounded border border-white/20 bg-black/70 px-3 py-2 text-[10px] tracking-wide uppercase text-white/80">
           Placement mode: click surface to stamp layer
