@@ -131,30 +131,33 @@ def sample(img, sx, sy):
 # MEGA aspect 1024:407 ≈ 2.515.
 
 decals = [
-    # FRONT face (-y direction). MAGA-cap style: large, bold, full width.
+    # FRONT face (+y direction). Empirically: mesh +y → world +z (visible from default camera).
+    # Camera looks toward -z = mesh -y direction; viewer's right = world +x = mesh +x.
     dict(name='mega', img=dimg['mega'],
-         center=Vector((0.0, -3.5, 2.6)),
-         du=Vector((1, 0, 0)), dv=Vector((0, 0, 1)),
+         center=Vector((0.0, +3.5, 2.6)),
+         du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
          half_w=3.2, half_h=3.2/2.515,
-         x_lo=-4.0, x_hi=+4.0, y_lo=-5.0, y_hi=-1.0, z_lo=0.5, z_hi=5.4),
-    # CAP-LEFT side panel (-x direction). Project from -x looking +x. Viewer's right = -y (front), up = +z.
+         x_lo=-4.0, x_hi=+4.0, y_lo=+1.0, y_hi=+5.0, z_lo=0.5, z_hi=5.4),
+    # CAP-LEFT side panel (-x direction). Viewer at mesh -x looking +x; right = mesh -y (back).
+    # Wait: empirically mesh -y is back, so viewer's right = mesh -y. But cross product gives +y for viewer at -x.
+    # Going with cross product math: forward=+x, up=+z, right = forward × up = +x × +z = -y.
     dict(name='panda', img=dimg['panda'],
          center=Vector((-3.6, 0.0, 2.6)),
          du=Vector((0, -1, 0)), dv=Vector((0, 0, 1)),
          half_w=1.5, half_h=1.5,
          x_lo=-5.0, x_hi=-1.5, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
-    # CAP-RIGHT side panel (+x direction). Project from +x looking -x. Viewer's right = +y (back), up = +z.
+    # CAP-RIGHT side panel (+x direction). Viewer at mesh +x looking -x; forward=-x, up=+z, right=-x × +z = +y.
     dict(name='eagle', img=dimg['eagle'],
          center=Vector((+3.6, 0.0, 2.6)),
          du=Vector((0, +1, 0)), dv=Vector((0, 0, 1)),
          half_w=1.5, half_h=1.5,
          x_lo=+1.5, x_hi=+5.0, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
-    # BACK panel center (+y direction). Project from +y looking -y. Viewer's right = -x, up = +z.
+    # BACK panel (-y direction, strap). Viewer at mesh -y looking +y; forward=+y, up=+z, right=+y × +z = +x.
     dict(name='feathers', img=dimg['feathers'],
-         center=Vector((0.0, +3.4, 3.6)),
-         du=Vector((-1, 0, 0)), dv=Vector((0, 0, 1)),
+         center=Vector((0.0, -3.4, 3.0)),
+         du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
          half_w=1.6, half_h=1.6,
-         x_lo=-1.7, x_hi=+1.7, y_lo=+2.0, y_hi=+5.0, z_lo=1.9, z_hi=5.4),
+         x_lo=-1.7, x_hi=+1.7, y_lo=-5.0, y_hi=-2.0, z_lo=1.5, z_hi=5.0),
 ]
 
 atlas = [0.0] * (TEX * TEX * 4)
