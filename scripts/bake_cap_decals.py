@@ -154,24 +154,44 @@ bbox_inner_L = panel_bbox(iid_inner_left) if iid_inner_left else None
 bbox_inner_R = panel_bbox(iid_inner_right) if iid_inner_right else None
 
 # Compute UV bbox of front-facing tris on each panel
-def front_face_uv_bbox(tris):
-    """UV bbox of physically-front cap face: centroid y > 3.0 (front strip),
-    z in [0.5, 3.0] (above brim, below upper dome), strong +y normal (both
-    winding orders handled via abs)."""
+def uv_bbox_for_zone(tris, predicate):
+    """Generic: UV bbox of tris whose centroid + normal satisfies predicate."""
     us, vs = [], []
     for t in tris:
-        if t['cy'] < 3.0: continue
-        if t['cz'] < 0.5 or t['cz'] > 3.0: continue
-        if abs(t['normal'].y) < 0.5: continue
+        if not predicate(t): continue
         for uv in t['uvs']:
             us.append(uv.x); vs.append(uv.y)
     if not us: return None
     return (min(us), min(vs), max(us), max(vs))
 
+def front_face_uv_bbox(tris):
+    return uv_bbox_for_zone(tris, lambda t:
+        t['cy'] > 3.0 and 0.5 <= t['cz'] <= 3.0 and abs(t['normal'].y) > 0.5)
+
+def side_face_uv_bbox(tris, sign_x):
+    """sign_x = -1 for cap-LEFT side panel, +1 for cap-RIGHT."""
+    return uv_bbox_for_zone(tris, lambda t:
+        sign_x * t['cx'] > 3.0
+        and abs(t['cy']) < 1.5
+        and 0.8 <= t['cz'] <= 3.5
+        and abs(t['normal'].x) > 0.5)
+
+def back_face_uv_bbox(tris):
+    return uv_bbox_for_zone(tris, lambda t:
+        t['cy'] < -3.0 and 0.5 <= t['cz'] <= 3.5 and abs(t['normal'].y) > 0.5)
+
 front_uv_L = front_face_uv_bbox(tris_by_iid[iid_left])
 front_uv_R = front_face_uv_bbox(tris_by_iid[iid_right])
-print(f'front-face UV bbox L: {front_uv_L}')
-print(f'front-face UV bbox R: {front_uv_R}')
+side_uv_L = side_face_uv_bbox(tris_by_iid[iid_left], -1)
+side_uv_R = side_face_uv_bbox(tris_by_iid[iid_right], +1)
+back_uv_L = back_face_uv_bbox(tris_by_iid[iid_left])
+back_uv_R = back_face_uv_bbox(tris_by_iid[iid_right])
+print(f'front L: {front_uv_L}')
+print(f'front R: {front_uv_R}')
+print(f'side  L: {side_uv_L}')
+print(f'side  R: {side_uv_R}')
+print(f'back  L: {back_uv_L}')
+print(f'back  R: {back_uv_R}')
 
 def load_decal(path):
     img = bpy.data.images.load(path, check_existing=False)
@@ -324,43 +344,58 @@ def paint_in_uv_bbox(uv_bbox, decal_img, ds_lo, ds_hi, dt_lo, dt_hi,
                 hits += 1
     return hits
 
-# Paint MEGA's left half on outer_left's front-face UV bbox, right half on outer_right's.
+# MEGA on FRONT — paint into the EXACT front-face UV bbox of each panel.
+# Center the text within the available area (inset 10% on each side so it
+# sits cleanly within the front face, no clipping).
+def inset_bbox(b, frac):
+    if not b: return None
+    u_lo, v_lo, u_hi, v_hi = b
+    bw, bh = u_hi - u_lo, v_hi - v_lo
+    return (u_lo + frac * bw, v_lo + frac * bh,
+            u_hi - frac * bw, v_hi - frac * bh)
+
+mega_L_bbox = inset_bbox(front_uv_L, 0.05)
+mega_R_bbox = inset_bbox(front_uv_R, 0.05)
 hit_log['mega_L'] = paint_in_uv_bbox(
-    front_uv_L, dimg['mega'], 0.0, 0.5, 0.0, 1.0,
+    mega_L_bbox, dimg['mega'], 0.0, 0.5, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True)
 hit_log['mega_R'] = paint_in_uv_bbox(
-    front_uv_R, dimg['mega'], 0.5, 1.0, 0.0, 1.0,
+    mega_R_bbox, dimg['mega'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_right], flip_v=True)
 
-# PANDA on cap-LEFT side panel. The cap-LEFT-side area is at LOW-MID V (around 0.55-0.65)
-# of outer_left panel where the U is at the LOW side (cap-outer = LOW U).
-# Whole panda decal on outer_left, low-mid V band.
-hit_log['panda'] = paint_decal_on_panel(
-    tris_by_iid[iid_left], bbox_L,
-    u_lo_frac=0.05, u_hi_frac=0.45, v_lo_frac=0.45, v_hi_frac=0.70,
-    decal_img=dimg['panda'], ds_lo=0.0, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
-    flip_v=False)
+# PANDA on cap-LEFT side panel — paint into the SIDE-face UV bbox.
+# Center the panda within the available area, inset 20% to keep it small
+# and 100% within the visible panel surface (no clipping).
+def center_in_bbox(b, frac_w, frac_h):
+    """Return a sub-bbox centered in b with given width/height fractions."""
+    if not b: return None
+    u_lo, v_lo, u_hi, v_hi = b
+    bw, bh = u_hi - u_lo, v_hi - v_lo
+    cu, cv = (u_lo + u_hi) / 2, (v_lo + v_hi) / 2
+    hw = bw * frac_w / 2
+    hh = bh * frac_h / 2
+    return (cu - hw, cv - hh, cu + hw, cv + hh)
 
-# EAGLE on cap-RIGHT side panel. Mirror of panda — outer_right, HIGH U (cap-outer).
-hit_log['eagle'] = paint_decal_on_panel(
-    tris_by_iid[iid_right], bbox_R,
-    u_lo_frac=0.55, u_hi_frac=0.95, v_lo_frac=0.45, v_hi_frac=0.70,
-    decal_img=dimg['eagle'], ds_lo=0.0, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
-    flip_v=False)
+# Side decals: 60% of the side-panel UV bbox (small, centered, embroidery-sized)
+panda_bbox = center_in_bbox(side_uv_L, 0.6, 0.6)
+eagle_bbox = center_in_bbox(side_uv_R, 0.6, 0.6)
+hit_log['panda'] = paint_in_uv_bbox(
+    panda_bbox, dimg['panda'], 0.0, 1.0, 0.0, 1.0,
+    tris_by_iid[iid_left], flip_v=True)
+hit_log['eagle'] = paint_in_uv_bbox(
+    eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
+    tris_by_iid[iid_right], flip_v=True)
 
-# FEATHERS on cap-BACK center. Paint left half of decal on outer_left at HIGH U
-# (cap-center seam), right half on outer_right at LOW U.
-# v_frac 0.0-0.20 = cap-back face (low V on each panel)
-hit_log['feathers_L'] = paint_decal_on_panel(
-    tris_by_iid[iid_left], bbox_L,
-    u_lo_frac=0.50, u_hi_frac=0.95, v_lo_frac=0.00, v_hi_frac=0.30,
-    decal_img=dimg['feathers'], ds_lo=0.0, ds_hi=0.5, dt_lo=0.0, dt_hi=1.0,
-    flip_v=False)
-hit_log['feathers_R'] = paint_decal_on_panel(
-    tris_by_iid[iid_right], bbox_R,
-    u_lo_frac=0.05, u_hi_frac=0.50, v_lo_frac=0.00, v_hi_frac=0.30,
-    decal_img=dimg['feathers'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
-    flip_v=False)
+# FEATHERS on cap-BACK — split at panel seam.
+# Use the back-face UV bboxes; each half occupies one panel.
+feathers_L_bbox = center_in_bbox(back_uv_L, 0.7, 0.6) if back_uv_L else None
+feathers_R_bbox = center_in_bbox(back_uv_R, 0.7, 0.6) if back_uv_R else None
+hit_log['feathers_L'] = paint_in_uv_bbox(
+    feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
+    tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
+hit_log['feathers_R'] = paint_in_uv_bbox(
+    feathers_R_bbox, dimg['feathers'], 0.0, 0.5, 0.0, 1.0,
+    tris_by_iid[iid_right], flip_v=True) if feathers_R_bbox else 0
 
 # INSIDE LABEL ("Out, Out, ...") on inner panels at back-center.
 # Inner panel V range [0.008, 0.487]; paint near top (back of cap interior)
