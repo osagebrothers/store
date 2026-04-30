@@ -386,19 +386,14 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
     v0 = max(v_lo, cv - ch/2); v1 = min(v_hi, cv + ch/2)
     return (u0, v0, u1, v1)
 
-# UV-V mapping: V near panel V_max ≈ apex, V near V_min ≈ strap/back-bottom.
-# back_face_uv_bbox covers the rear-facing band — within it:
-#   anchor_v=0.20 → low (just above strap/hole)
-#   anchor_v=0.55 → mid (above hole)
-#   anchor_v=0.85 → high (near apex)
-# anchor_u: 0.0 = panel-outer edge, 1.0 = center seam
-# Eagle on cap-LEFT back panel (viewer sees on LEFT when looking at back).
-# Panda on cap-RIGHT back panel. Both anchored slightly off the seam, at low V
-# (near strap) so they sit on the lower-back corners.
-eagle_bbox = anchor_in_bbox(back_uv_L, frac_w=0.40, frac_h=0.42,
-                            anchor_u=0.45, anchor_v=0.30)
-panda_bbox = anchor_in_bbox(back_uv_R, frac_w=0.40, frac_h=0.42,
-                            anchor_u=0.55, anchor_v=0.30)
+# Eagle on cap-LEFT back panel, panda on cap-RIGHT back panel.
+# back V range ≈ [0.44, 0.58]; LOW V = strap/hole edge, HIGH V = apex.
+# anchor_v=0.18 with frac_h=0.32 → decal V≈[0.443, 0.488], hugging the strap.
+# frac_h kept small enough that nothing clips the back-face V boundary.
+eagle_bbox = anchor_in_bbox(back_uv_L, frac_w=0.55, frac_h=0.32,
+                            anchor_u=0.40, anchor_v=0.18)
+panda_bbox = anchor_in_bbox(back_uv_R, frac_w=0.55, frac_h=0.32,
+                            anchor_u=0.60, anchor_v=0.18)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
@@ -408,10 +403,10 @@ hit_log['panda'] = paint_in_uv_bbox(
 
 # FEATHERS centered above the back-hat-hole, split across the cap-center seam.
 # Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
-feathers_L_bbox = anchor_in_bbox(back_uv_L, frac_w=0.45, frac_h=0.40,
-                                 anchor_u=0.95, anchor_v=0.42)
-feathers_R_bbox = anchor_in_bbox(back_uv_R, frac_w=0.45, frac_h=0.40,
-                                 anchor_u=0.05, anchor_v=0.42)
+feathers_L_bbox = anchor_in_bbox(back_uv_L, frac_w=0.42, frac_h=0.30,
+                                 anchor_u=0.95, anchor_v=0.45)
+feathers_R_bbox = anchor_in_bbox(back_uv_R, frac_w=0.42, frac_h=0.30,
+                                 anchor_u=0.05, anchor_v=0.45)
 hit_log['feathers_L'] = paint_in_uv_bbox(
     feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
