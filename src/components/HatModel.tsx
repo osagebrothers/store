@@ -571,12 +571,28 @@ export default function HatModel({
             mat.color.set('#ffffff');
           } else if (isMainCap && !isBand && !useFabricTexture) {
             mat.map = atlasTex;
+            // Embroidery effect: where atlas alpha > 0, perturb surface normal so
+            // the decal appears RAISED. We sample neighbouring atlas alphas and
+            // build a screen-space normal-like offset, then add bumped lighting.
             mat.onBeforeCompile = (shader) => {
               shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <map_fragment>',
                 `#ifdef USE_MAP
                   vec4 atlasSample = texture2D( map, vMapUv );
-                  diffuseColor.rgb = mix( diffuseColor.rgb, atlasSample.rgb, atlasSample.a );
+                  // Raised embroidery: sample 4 neighbours of the atlas alpha to
+                  // estimate a height gradient; use it to perturb shading.
+                  vec2 px = vec2( 1.0 / 2048.0 );
+                  float aL = texture2D( map, vMapUv + vec2(-px.x, 0.0) ).a;
+                  float aR = texture2D( map, vMapUv + vec2( px.x, 0.0) ).a;
+                  float aD = texture2D( map, vMapUv + vec2(0.0, -px.y) ).a;
+                  float aU = texture2D( map, vMapUv + vec2(0.0,  px.y) ).a;
+                  float dx = (aR - aL);
+                  float dy = (aU - aD);
+                  // Lighting from upper-left, slightly more pronounced where alpha is high
+                  float bump = clamp( -dx * 0.7 + dy * 0.7, -1.0, 1.0 );
+                  float raise = atlasSample.a * 0.35; // brighten the decal pixel
+                  vec3 decalRgb = atlasSample.rgb * (1.0 + bump * 0.6 + raise);
+                  diffuseColor.rgb = mix( diffuseColor.rgb, decalRgb, atlasSample.a );
                 #endif`,
               );
             };

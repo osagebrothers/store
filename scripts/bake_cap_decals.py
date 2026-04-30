@@ -83,10 +83,13 @@ for i, p in enumerate(poly_meta):
     island_v_max[iid] = max(island_v_max.get(iid, 0.0), p['uv_max'][1])
 big = sorted(island_size.items(), key=lambda kv: kv[1], reverse=True)
 outer_iids = []
+inner_iids = []
 for iid, _ in big:
     if island_v_min[iid] > 0.4 and island_v_max[iid] > 0.7:
-        outer_iids.append(iid)
-    if len(outer_iids) >= 2: break
+        if len(outer_iids) < 2: outer_iids.append(iid)
+    elif island_v_max[iid] < 0.5:
+        if len(inner_iids) < 2: inner_iids.append(iid)
+    if len(outer_iids) >= 2 and len(inner_iids) >= 2: break
 
 # Determine which is left vs right by looking at 3D x-centroid
 def island_x_centroid(iid):
@@ -117,7 +120,8 @@ print(f'outer_left  UV bbox: U=[{bbox_L[0]:.4f}, {bbox_L[2]:.4f}] V=[{bbox_L[1]:
 print(f'outer_right UV bbox: U=[{bbox_R[0]:.4f}, {bbox_R[2]:.4f}] V=[{bbox_R[1]:.4f}, {bbox_R[3]:.4f}]')
 
 # Each panel's tris with UVs and 3D positions + surface normal
-tris_by_iid = {iid_left: [], iid_right: []}
+all_relevant_iids = set(outer_iids) | set(inner_iids)
+tris_by_iid = {iid: [] for iid in all_relevant_iids}
 for t in me.loop_triangles:
     iid = poly_island[t.polygon_index]
     if iid in tris_by_iid:
@@ -138,15 +142,27 @@ for t in me.loop_triangles:
         })
 print(f'tris: outer_left={len(tris_by_iid[iid_left])}, outer_right={len(tris_by_iid[iid_right])}')
 
+# Inner panels for the inside label
+iid_inner_left = None
+iid_inner_right = None
+if len(inner_iids) >= 2:
+    iid_inner_left = min(inner_iids, key=island_x_centroid)
+    iid_inner_right = max(inner_iids, key=island_x_centroid)
+    print(f'inner_left={iid_inner_left}, inner_right={iid_inner_right}')
+
+bbox_inner_L = panel_bbox(iid_inner_left) if iid_inner_left else None
+bbox_inner_R = panel_bbox(iid_inner_right) if iid_inner_right else None
+
 # Compute UV bbox of front-facing tris on each panel
 def front_face_uv_bbox(tris):
+    """UV bbox of physically-front cap face: centroid y > 3.0 (front strip),
+    z in [0.5, 3.0] (above brim, below upper dome), strong +y normal (both
+    winding orders handled via abs)."""
     us, vs = [], []
     for t in tris:
-        # Front face: tri centroid in y > +2.0 (most of the front-facing surface)
-        if t['cy'] < 2.0: continue
-        if t['cz'] < 0.4 or t['cz'] > 4.5: continue
-        # Surface normal must have +y component (not the apex top)
-        if abs(t['normal'].y) < 0.25: continue
+        if t['cy'] < 3.0: continue
+        if t['cz'] < 0.5 or t['cz'] > 3.0: continue
+        if abs(t['normal'].y) < 0.5: continue
         for uv in t['uvs']:
             us.append(uv.x); vs.append(uv.y)
     if not us: return None
@@ -167,6 +183,7 @@ dimg = {
     'eagle':    load_decal(f'{PUB}/eagle_decal.png'),
     'feathers': load_decal(f'{PUB}/feathers_decal.png'),
     'panda':    load_decal(f'{PUB}/panda_decal.png'),
+    'inside':   load_decal(f'{PUB}/inside_label.png'),
 }
 
 def sample(img, sx, sy):
@@ -344,6 +361,21 @@ hit_log['feathers_R'] = paint_decal_on_panel(
     u_lo_frac=0.05, u_hi_frac=0.50, v_lo_frac=0.00, v_hi_frac=0.30,
     decal_img=dimg['feathers'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
     flip_v=False)
+
+# INSIDE LABEL ("Out, Out, ...") on inner panels at back-center.
+# Inner panel V range [0.008, 0.487]; paint near top (back of cap interior)
+# split at the cap-center seam.
+if bbox_inner_L and bbox_inner_R:
+    hit_log['inside_L'] = paint_decal_on_panel(
+        tris_by_iid[iid_inner_left], bbox_inner_L,
+        u_lo_frac=0.50, u_hi_frac=0.95, v_lo_frac=0.55, v_hi_frac=0.95,
+        decal_img=dimg['inside'], ds_lo=0.0, ds_hi=0.5, dt_lo=0.0, dt_hi=1.0,
+        flip_v=False)
+    hit_log['inside_R'] = paint_decal_on_panel(
+        tris_by_iid[iid_inner_right], bbox_inner_R,
+        u_lo_frac=0.05, u_hi_frac=0.50, v_lo_frac=0.55, v_hi_frac=0.95,
+        decal_img=dimg['inside'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
+        flip_v=False)
 
 print(f'\nbake done in {time.time()-t0:.1f}s')
 for k, v in hit_log.items():
