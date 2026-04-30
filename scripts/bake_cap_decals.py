@@ -153,11 +153,12 @@ decals = [
          half_w=1.5, half_h=1.5,
          x_lo=+1.5, x_hi=+5.0, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
     # BACK panel (-y direction, strap). Viewer at mesh -y looking +y; forward=+y, up=+z, right=+y × +z = +x.
+    # Big decal w/ tight AABB means we only paint the center of the feathers image (where the X is).
     dict(name='feathers', img=dimg['feathers'],
          center=Vector((0.0, -3.4, 3.0)),
          du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.6, half_h=1.6,
-         x_lo=-1.7, x_hi=+1.7, y_lo=-5.0, y_hi=-2.0, z_lo=1.5, z_hi=5.0),
+         half_w=2.5, half_h=2.5,
+         x_lo=-1.4, x_hi=+1.4, y_lo=-5.0, y_hi=-2.0, z_lo=1.6, z_hi=4.6),
 ]
 
 atlas = [0.0] * (TEX * TEX * 4)
