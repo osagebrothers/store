@@ -34,7 +34,12 @@ mainCap = next(o for o in bpy.data.objects
                if o.type == 'MESH' and o.parent and o.parent.name == 'mainCap')
 me = mainCap.data
 me.calc_loop_triangles()
-uvl = me.uv_layers.active.data
+print(f'UV layers: {[(i, l.name, l.active) for i, l in enumerate(me.uv_layers)]}')
+# three.js samples mat.map via the FIRST UV layer (UVMap, index 0). Lock to it.
+target_uv = me.uv_layers[0]
+me.uv_layers.active = target_uv
+uvl = target_uv.data
+print(f'Baking against UV layer: {target_uv.name}')
 
 # Identify outer panels via UV-island clustering
 poly_meta = []
@@ -387,13 +392,19 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
     return (u0, v0, u1, v1)
 
 # Eagle on cap-LEFT back panel, panda on cap-RIGHT back panel.
-# back V range ≈ [0.44, 0.58]; LOW V = strap/hole edge, HIGH V = apex.
-# anchor_v=0.18 with frac_h=0.32 → decal V≈[0.443, 0.488], hugging the strap.
-# frac_h kept small enough that nothing clips the back-face V boundary.
-eagle_bbox = anchor_in_bbox(back_uv_L, frac_w=0.55, frac_h=0.32,
-                            anchor_u=0.40, anchor_v=0.18)
-panda_bbox = anchor_in_bbox(back_uv_R, frac_w=0.55, frac_h=0.32,
-                            anchor_u=0.60, anchor_v=0.18)
+# Hardcoded UV bboxes verified by 3D-position diagnostic to land on
+# the truly back-facing surface (y<-2.5) at mid-Z (1.5<z<3.5):
+#   outer-LEFT  V=[0.50,0.55] → 3D X[-3.91,0] Y[-4.33,-2.62] Z[0.07,2.69]
+#   outer-LEFT  V=[0.55,0.58] → 3D X[-3.54,0] Y[-3.77,-2.51] Z[1.62,3.99]
+# Mirror for cap-RIGHT outer panel via U reflection.
+# To go LOW on the cap (above strap), use lower V (closer to 0.50).
+# To go HIGH (toward apex), use higher V (toward 0.58).
+# User wants eagle+panda DOWN → keep V near low-mid back range.
+eagle_bbox = (0.205, 0.515, 0.305, 0.575)   # U,V,U,V (lo,lo,hi,hi)
+panda_bbox = (0.605, 0.515, 0.705, 0.575)
+# Sanity check: leave the helper-derived ones around but unused.
+_unused_eagle_anchor = anchor_in_bbox(back_uv_L, 0.55, 0.32, 0.40, 0.18)
+_unused_panda_anchor = anchor_in_bbox(back_uv_R, 0.55, 0.32, 0.60, 0.18)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
@@ -403,10 +414,9 @@ hit_log['panda'] = paint_in_uv_bbox(
 
 # FEATHERS centered above the back-hat-hole, split across the cap-center seam.
 # Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
-feathers_L_bbox = anchor_in_bbox(back_uv_L, frac_w=0.42, frac_h=0.30,
-                                 anchor_u=0.95, anchor_v=0.45)
-feathers_R_bbox = anchor_in_bbox(back_uv_R, frac_w=0.42, frac_h=0.30,
-                                 anchor_u=0.05, anchor_v=0.45)
+# Feathers split across the cap-center seam, slightly above eagle/panda.
+feathers_L_bbox = (0.355, 0.530, 0.450, 0.595)
+feathers_R_bbox = (0.470, 0.530, 0.560, 0.595)
 hit_log['feathers_L'] = paint_in_uv_bbox(
     feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
