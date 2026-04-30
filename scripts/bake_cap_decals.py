@@ -1,22 +1,24 @@
-"""Bake decals — 3D-projection rasterizer (v3, correct mapping).
+"""Bake cap decals via DIRECT UV painting (no 3D projection).
 
-Per-triangle UV rasterization with barycentric 3D position interpolation.
-For each pixel, project 3D position orthographically onto each decal's tangent
-plane and sample the decal image. First decal whose AABB matches wins.
+Each decal is mapped onto a specific UV region of each outer panel.
+Per-panel UV bounds for the front/back/left/right zones are derived from
+the empirical inspect samples:
 
-Cap-local axes (verified):
-  -y = forward (brim), +y = back (strap), +z = up (apex)
-  bbox: x=±4.74, y=[-4.82, +4.54], z=[+0.04, +5.84]
+  outer_left  U=[0.143, 0.458], V=[0.441, 0.883]
+  outer_right U=[0.469, 0.774], V=[0.446, 0.890]
 
-Atlas mapping (verified by inspect-cap.py):
-  outer_left:  U=[0.143, 0.458], V=[0.441, 0.883]
-    front face → V≈0.44, back face → V≈0.88, apex → V≈0.73
-    cap-center seam → U≈0.43, cap-outer → U≈0.18
-  outer_right: U=[0.469, 0.774], V=[0.446, 0.890]
+  Per the corrected interpretation (mesh +y → world +z = front-facing):
+    HIGH V (≈0.88) = cap-FRONT face
+    LOW  V (≈0.44) = cap-BACK face
+    MID  V (≈0.73) = cap-APEX
+    LOW-MID V (≈0.55) = cap-side / brim-outer area
 
-Inner shells exist at V=[0.008, 0.487] — must be filtered out by island.
+The cap-center seam (x=0) is at outer_left U≈0.43 (HIGH U) and
+outer_right U≈0.48 (LOW U). The cap-outer side is at outer_left U≈0.18 (LOW)
+and outer_right U≈0.74 (HIGH).
 
-Three.js flipY=true: atlas Blender-storage py == glTF V * H, direct.
+Each decal is split into a left half (paints onto outer_left) and a right
+half (paints onto outer_right) so the two halves meet at the cap-center seam.
 """
 import bpy, time
 from mathutils import Vector
@@ -34,7 +36,7 @@ me = mainCap.data
 me.calc_loop_triangles()
 uvl = me.uv_layers.active.data
 
-# --- UV-island clustering at the polygon level ---
+# Identify outer panels via UV-island clustering
 poly_meta = []
 for poly in me.polygons:
     uv_pts = [uvl[li].uv.copy() for li in poly.loop_indices]
@@ -69,35 +71,59 @@ for (cx, cy), pids in cells.items():
         for j in range(1, len(pids)):
             union(pids[0], pids[j])
 poly_island = [find(i) for i in range(len(poly_meta))]
-# Find the two big outer-panel islands by size + V range.
 island_size = {}
 island_v_min = {}
 island_v_max = {}
+island_x_avg = {}
+island_x_count = {}
 for i, p in enumerate(poly_meta):
     iid = poly_island[i]
     island_size[iid] = island_size.get(iid, 0) + 1
     island_v_min[iid] = min(island_v_min.get(iid, 1.0), p['uv_min'][1])
     island_v_max[iid] = max(island_v_max.get(iid, 0.0), p['uv_max'][1])
 big = sorted(island_size.items(), key=lambda kv: kv[1], reverse=True)
-outer_islands = set()
+outer_iids = []
 for iid, _ in big:
     if island_v_min[iid] > 0.4 and island_v_max[iid] > 0.7:
-        outer_islands.add(iid)
-    if len(outer_islands) >= 2: break
-print(f'islands: {len(island_size)} | big-6: {[(iid, island_size[iid], round(island_v_min[iid],3), round(island_v_max[iid],3)) for iid, _ in big]}')
-print(f'outer panels selected: {len(outer_islands)}')
+        outer_iids.append(iid)
+    if len(outer_iids) >= 2: break
 
-tris = []
+# Determine which is left vs right by looking at 3D x-centroid
+def island_x_centroid(iid):
+    polys = [i for i, p in enumerate(poly_meta) if poly_island[i] == iid]
+    cx = 0; n = 0
+    for pi in polys:
+        poly = me.polygons[pi]
+        for vi in poly.vertices:
+            cx += me.vertices[vi].co.x
+            n += 1
+    return cx / n if n else 0.0
+iid_left = min(outer_iids, key=island_x_centroid)
+iid_right = max(outer_iids, key=island_x_centroid)
+print(f'outer_left island_id={iid_left}, outer_right island_id={iid_right}')
+
+# Compute exact UV bbox for each outer panel
+def panel_bbox(iid):
+    us, vs = [], []
+    for i, p in enumerate(poly_meta):
+        if poly_island[i] == iid:
+            us.append(p['uv_min'][0]); us.append(p['uv_max'][0])
+            vs.append(p['uv_min'][1]); vs.append(p['uv_max'][1])
+    return (min(us), min(vs), max(us), max(vs))
+
+bbox_L = panel_bbox(iid_left)
+bbox_R = panel_bbox(iid_right)
+print(f'outer_left  UV bbox: U=[{bbox_L[0]:.4f}, {bbox_L[2]:.4f}] V=[{bbox_L[1]:.4f}, {bbox_L[3]:.4f}]')
+print(f'outer_right UV bbox: U=[{bbox_R[0]:.4f}, {bbox_R[2]:.4f}] V=[{bbox_R[1]:.4f}, {bbox_R[3]:.4f}]')
+
+# Each panel's tris
+tris_by_iid = {iid_left: [], iid_right: []}
 for t in me.loop_triangles:
-    if poly_island[t.polygon_index] not in outer_islands:
-        continue
-    uvs = [uvl[li].uv.copy() for li in t.loops]
-    p3 = [me.vertices[vi].co.copy() for vi in t.vertices]
-    cx_ = (p3[0].x + p3[1].x + p3[2].x) / 3
-    cy_ = (p3[0].y + p3[1].y + p3[2].y) / 3
-    cz_ = (p3[0].z + p3[1].z + p3[2].z) / 3
-    tris.append({'uvs': uvs, 'p3': p3, 'cx': cx_, 'cy': cy_, 'cz': cz_})
-print(f'outer-panel tris: {len(tris)}')
+    iid = poly_island[t.polygon_index]
+    if iid in tris_by_iid:
+        uvs = [uvl[li].uv.copy() for li in t.loops]
+        tris_by_iid[iid].append(uvs)
+print(f'tris: outer_left={len(tris_by_iid[iid_left])}, outer_right={len(tris_by_iid[iid_right])}')
 
 def load_decal(path):
     img = bpy.data.images.load(path, check_existing=False)
@@ -112,127 +138,140 @@ dimg = {
 }
 
 def sample(img, sx, sy):
-    if sx < 0.0 or sx >= 1.0 or sy < 0.0 or sy >= 1.0:
-        return None
-    px = int(sx * img['w'])
-    py = int(sy * img['h'])
-    if px >= img['w']: px = img['w'] - 1
-    if py >= img['h']: py = img['h'] - 1
+    if sx < 0.0 or sx >= 1.0 or sy < 0.0 or sy >= 1.0: return None
+    px = min(img['w']-1, int(sx * img['w']))
+    py = min(img['h']-1, int(sy * img['h']))
     idx = (py * img['w'] + px) * 4
     p = img['pixels']
     return (p[idx], p[idx+1], p[idx+2], p[idx+3])
 
-# Disjoint zones: any pixel matches at most ONE decal.
-#   front face (y < -1.5): MEGA
-#   back face (y > +1.5):
-#     |x| < 1.0 → feathers (back-center)
-#     +1.0 < x → eagle (back-cap-right, viewer-LEFT in back view)
-#     x < -1.0 → panda (back-cap-left, viewer-RIGHT in back view)
-# MEGA aspect 1024:407 ≈ 2.515.
-
-decals = [
-    # FRONT face (mesh +y). MAKE EARTH GREAT AGAIN — bold, fills the front
-    # like a Trump MAGA cap. Positioned just above the brim line.
-    dict(name='mega', img=dimg['mega'],
-         center=Vector((0.0, +3.5, 2.0)),
-         du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=3.0, half_h=3.0/2.515,
-         x_lo=-3.5, x_hi=+3.5, y_lo=+1.5, y_hi=+5.0, z_lo=0.5, z_hi=3.5),
-    # CAP-LEFT side panel (mesh -x). Embroidered mascot, well-proportioned.
-    dict(name='panda', img=dimg['panda'],
-         center=Vector((-3.7, 0.0, 1.8)),
-         du=Vector((0, -1, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.1, half_h=1.1,
-         x_lo=-5.0, x_hi=-1.8, y_lo=-1.4, y_hi=+1.4, z_lo=0.5, z_hi=3.2),
-    # CAP-RIGHT side panel (mesh +x). Mirror of panda.
-    dict(name='eagle', img=dimg['eagle'],
-         center=Vector((+3.7, 0.0, 1.8)),
-         du=Vector((0, +1, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.1, half_h=1.1,
-         x_lo=+1.8, x_hi=+5.0, y_lo=-1.4, y_hi=+1.4, z_lo=0.5, z_hi=3.2),
-    # BACK panel center (mesh -y). Crossed feathers — proportional embroidery.
-    dict(name='feathers', img=dimg['feathers'],
-         center=Vector((0.0, -3.7, 1.8)),
-         du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.4, half_h=1.4,
-         x_lo=-1.6, x_hi=+1.6, y_lo=-5.0, y_hi=-1.8, z_lo=0.5, z_hi=3.2),
-]
-
 atlas = [0.0] * (TEX * TEX * 4)
-hits = {d['name']: 0 for d in decals}
 
 def edge(ax, ay, bx, by, cx, cy):
     return (bx-ax)*(cy-ay) - (by-ay)*(cx-ax)
 
+def paint_decal_on_panel(tris_list, panel_bbox,
+                         u_lo_frac, u_hi_frac, v_lo_frac, v_hi_frac,
+                         decal_img, ds_lo, ds_hi, dt_lo, dt_hi,
+                         flip_v=False):
+    """Paint a decal slice into a UV sub-rectangle of a panel.
+    panel_bbox: (u_min, v_min, u_max, v_max) of panel UV
+    *_frac:    0..1 fractions of panel bbox where decal is placed
+    decal_img: dict with 'pixels', 'w', 'h'
+    ds_lo, ds_hi, dt_lo, dt_hi: 0..1 slice of the decal image to use (sx, sy)
+    """
+    u_min, v_min, u_max, v_max = panel_bbox
+    bw, bh = u_max - u_min, v_max - v_min
+    target_u_lo = u_min + u_lo_frac * bw
+    target_u_hi = u_min + u_hi_frac * bw
+    target_v_lo = v_min + v_lo_frac * bh
+    target_v_hi = v_min + v_hi_frac * bh
+
+    hits = 0
+    for uvs in tris_list:
+        # rasterize in atlas pixel space, but only where pixel UV is in target
+        px0, py0 = uvs[0].x*TEX, uvs[0].y*TEX
+        px1, py1 = uvs[1].x*TEX, uvs[1].y*TEX
+        px2, py2 = uvs[2].x*TEX, uvs[2].y*TEX
+        pxmin = max(0, int(min(px0, px1, px2)))
+        pxmax = min(TEX-1, int(max(px0, px1, px2)) + 1)
+        pymin = max(0, int(min(py0, py1, py2)))
+        pymax = min(TEX-1, int(max(py0, py1, py2)) + 1)
+        # quick reject: tri's UV bbox doesn't overlap target
+        u0 = min(px0, px1, px2) / TEX
+        u1 = max(px0, px1, px2) / TEX
+        v0 = min(py0, py1, py2) / TEX
+        v1 = max(py0, py1, py2) / TEX
+        if u1 < target_u_lo or u0 > target_u_hi or v1 < target_v_lo or v0 > target_v_hi:
+            continue
+        area = edge(px0, py0, px1, py1, px2, py2)
+        if abs(area) < 1e-9: continue
+        inv_area = 1.0 / area
+        for py in range(pymin, pymax + 1):
+            v_atlas = (py + 0.5) / TEX
+            if v_atlas < target_v_lo or v_atlas >= target_v_hi: continue
+            for px in range(pxmin, pxmax + 1):
+                u_atlas = (px + 0.5) / TEX
+                if u_atlas < target_u_lo or u_atlas >= target_u_hi: continue
+                w0 = edge(px1, py1, px2, py2, px+0.5, py+0.5) * inv_area
+                w1 = edge(px2, py2, px0, py0, px+0.5, py+0.5) * inv_area
+                w2 = edge(px0, py0, px1, py1, px+0.5, py+0.5) * inv_area
+                if w0 < 0 or w1 < 0 or w2 < 0: continue
+                # Decal sample fractions within target rect
+                fu = (u_atlas - target_u_lo) / (target_u_hi - target_u_lo)
+                fv = (v_atlas - target_v_lo) / (target_v_hi - target_v_lo)
+                sx = ds_lo + fu * (ds_hi - ds_lo)
+                sy = dt_lo + fv * (dt_hi - dt_lo)
+                if flip_v: sy = dt_lo + dt_hi - sy
+                rgba = sample(decal_img, sx, sy)
+                if rgba is None or rgba[3] < 0.02: continue
+                i = (py * TEX + px) * 4
+                a = rgba[3]
+                inv = 1.0 - a
+                atlas[i]   = rgba[0] * a + atlas[i]   * inv
+                atlas[i+1] = rgba[1] * a + atlas[i+1] * inv
+                atlas[i+2] = rgba[2] * a + atlas[i+2] * inv
+                atlas[i+3] = a + atlas[i+3] * inv
+                hits += 1
+    return hits
+
+# ============================================================
+# UV mapping per panel (verified by inspect-cap.py):
+# - HIGH V (~0.88) = cap-FRONT face
+# - LOW V (~0.44) = cap-BACK face (where strap is)
+# - MID-LOW V (~0.55) = cap-side/brim-outer area
+# - HIGH U on outer_left = cap-CENTER seam (low x = cap-outer)
+# - LOW U on outer_right = cap-CENTER seam (high x = cap-outer)
+# ============================================================
 t0 = time.time()
-n_used = 0
-for ti, tri in enumerate(tris):
-    if ti % 4000 == 0:
-        print(f'  tri {ti}/{len(tris)} ({time.time()-t0:.1f}s) used={n_used}')
-    cx_, cy_, cz_ = tri['cx'], tri['cy'], tri['cz']
-    eligible = []
-    for d in decals:
-        if d['x_lo']-0.4 <= cx_ <= d['x_hi']+0.4 and \
-           d['y_lo']-0.4 <= cy_ <= d['y_hi']+0.4 and \
-           d['z_lo']-0.4 <= cz_ <= d['z_hi']+0.4:
-            eligible.append(d)
-    if not eligible:
-        continue
-    n_used += 1
+hit_log = {}
 
-    uvs = tri['uvs']; p3 = tri['p3']
-    px0, py0 = uvs[0].x*TEX, uvs[0].y*TEX
-    px1, py1 = uvs[1].x*TEX, uvs[1].y*TEX
-    px2, py2 = uvs[2].x*TEX, uvs[2].y*TEX
-    pxmin = max(0, int(min(px0, px1, px2)))
-    pxmax = min(TEX-1, int(max(px0, px1, px2)) + 1)
-    pymin = max(0, int(min(py0, py1, py2)))
-    pymax = min(TEX-1, int(max(py0, py1, py2)) + 1)
-    if pxmax < pxmin or pymax < pymin: continue
+# MEGA on cap-FRONT (HIGH V). Wider V band so text is readable, narrower U
+# to keep on visible front face (avoid side bleed).
+# Front face is HIGH V (~0.88). Use v_frac 0.65-1.00 for taller text.
+hit_log['mega_L'] = paint_decal_on_panel(
+    tris_by_iid[iid_left], bbox_L,
+    u_lo_frac=0.30, u_hi_frac=1.00, v_lo_frac=0.65, v_hi_frac=1.00,
+    decal_img=dimg['mega'], ds_lo=0.0, ds_hi=0.5, dt_lo=0.0, dt_hi=1.0,
+    flip_v=True)
+hit_log['mega_R'] = paint_decal_on_panel(
+    tris_by_iid[iid_right], bbox_R,
+    u_lo_frac=0.00, u_hi_frac=0.70, v_lo_frac=0.65, v_hi_frac=1.00,
+    decal_img=dimg['mega'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
+    flip_v=True)
 
-    area = edge(px0, py0, px1, py1, px2, py2)
-    if abs(area) < 1e-9: continue
-    inv_area = 1.0 / area
-    p0, p1, p2 = p3[0], p3[1], p3[2]
+# PANDA on cap-LEFT side panel. The cap-LEFT-side area is at LOW-MID V (around 0.55-0.65)
+# of outer_left panel where the U is at the LOW side (cap-outer = LOW U).
+# Whole panda decal on outer_left, low-mid V band.
+hit_log['panda'] = paint_decal_on_panel(
+    tris_by_iid[iid_left], bbox_L,
+    u_lo_frac=0.05, u_hi_frac=0.45, v_lo_frac=0.45, v_hi_frac=0.70,
+    decal_img=dimg['panda'], ds_lo=0.0, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
+    flip_v=False)
 
-    for py in range(pymin, pymax + 1):
-        py_c = py + 0.5
-        for px in range(pxmin, pxmax + 1):
-            px_c = px + 0.5
-            w0 = edge(px1, py1, px2, py2, px_c, py_c) * inv_area
-            w1 = edge(px2, py2, px0, py0, px_c, py_c) * inv_area
-            w2 = edge(px0, py0, px1, py1, px_c, py_c) * inv_area
-            if w0 < 0 or w1 < 0 or w2 < 0: continue
-            wx = p0.x*w0 + p1.x*w1 + p2.x*w2
-            wy = p0.y*w0 + p1.y*w1 + p2.y*w2
-            wz = p0.z*w0 + p1.z*w1 + p2.z*w2
+# EAGLE on cap-RIGHT side panel. Mirror of panda — outer_right, HIGH U (cap-outer).
+hit_log['eagle'] = paint_decal_on_panel(
+    tris_by_iid[iid_right], bbox_R,
+    u_lo_frac=0.55, u_hi_frac=0.95, v_lo_frac=0.45, v_hi_frac=0.70,
+    decal_img=dimg['eagle'], ds_lo=0.0, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
+    flip_v=False)
 
-            for d in eligible:
-                if not (d['x_lo'] <= wx <= d['x_hi']): continue
-                if not (d['y_lo'] <= wy <= d['y_hi']): continue
-                if not (d['z_lo'] <= wz <= d['z_hi']): continue
-                rx = wx - d['center'].x
-                ry = wy - d['center'].y
-                rz = wz - d['center'].z
-                u_d = (rx*d['du'].x + ry*d['du'].y + rz*d['du'].z) / d['half_w']
-                v_d = (rx*d['dv'].x + ry*d['dv'].y + rz*d['dv'].z) / d['half_h']
-                if -1.0 <= u_d <= 1.0 and -1.0 <= v_d <= 1.0:
-                    sx = (u_d + 1.0) * 0.5
-                    sy = (v_d + 1.0) * 0.5
-                    rgba = sample(d['img'], sx, sy)
-                    if rgba is None or rgba[3] < 0.02: continue
-                    i = (py * TEX + px) * 4
-                    a = rgba[3]
-                    inv = 1.0 - a
-                    atlas[i]   = rgba[0] * a + atlas[i]   * inv
-                    atlas[i+1] = rgba[1] * a + atlas[i+1] * inv
-                    atlas[i+2] = rgba[2] * a + atlas[i+2] * inv
-                    atlas[i+3] = a + atlas[i+3] * inv
-                    hits[d['name']] += 1
-                    break
+# FEATHERS on cap-BACK center. Paint left half of decal on outer_left at HIGH U
+# (cap-center seam), right half on outer_right at LOW U.
+# v_frac 0.0-0.20 = cap-back face (low V on each panel)
+hit_log['feathers_L'] = paint_decal_on_panel(
+    tris_by_iid[iid_left], bbox_L,
+    u_lo_frac=0.50, u_hi_frac=0.95, v_lo_frac=0.00, v_hi_frac=0.30,
+    decal_img=dimg['feathers'], ds_lo=0.0, ds_hi=0.5, dt_lo=0.0, dt_hi=1.0,
+    flip_v=False)
+hit_log['feathers_R'] = paint_decal_on_panel(
+    tris_by_iid[iid_right], bbox_R,
+    u_lo_frac=0.05, u_hi_frac=0.50, v_lo_frac=0.00, v_hi_frac=0.30,
+    decal_img=dimg['feathers'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
+    flip_v=False)
 
 print(f'\nbake done in {time.time()-t0:.1f}s')
-for k, v in hits.items():
+for k, v in hit_log.items():
     print(f'  {k}: {v}')
 
 img = bpy.data.images.new('cap_decals_atlas', width=TEX, height=TEX, alpha=True)
