@@ -28,7 +28,7 @@ page.on('response', (res) => {
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const designerPath = process.env.DESIGNER_PATH || '/designer';
 // Use preview mode to skip Fabric.js (uses projected decals for text, reliable in headless)
-const url = `${baseUrl}${designerPath}?preview`;
+const url = `${baseUrl}${designerPath}?preview&spin=0`;
 
 async function loadAndWait() {
   await page.goto(url, { waitUntil: 'networkidle' });
