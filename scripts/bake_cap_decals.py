@@ -151,10 +151,10 @@ decals = [
          x_lo=+1.5, x_hi=+5.0, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
     # BACK panel center (+y direction). Project from +y looking -y. Viewer's right = -x, up = +z.
     dict(name='feathers', img=dimg['feathers'],
-         center=Vector((0.0, +3.6, 2.6)),
+         center=Vector((0.0, +3.4, 3.6)),
          du=Vector((-1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.2, half_h=1.2,
-         x_lo=-1.4, x_hi=+1.4, y_lo=+2.0, y_hi=+5.0, z_lo=1.0, z_hi=4.4),
+         half_w=1.6, half_h=1.6,
+         x_lo=-1.7, x_hi=+1.7, y_lo=+2.0, y_hi=+5.0, z_lo=1.9, z_hi=5.4),
 ]
 
 atlas = [0.0] * (TEX * TEX * 4)
