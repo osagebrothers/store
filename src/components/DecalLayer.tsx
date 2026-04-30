@@ -1,130 +1,47 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Decal as ProjectedDecal, useTexture } from '@react-three/drei';
+import { useMemo } from 'react';
+import { useTexture } from '@react-three/drei';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Decal } from '@/types/hat';
-import { toFontStack } from '@/lib/fonts';
 
 interface DecalLayerProps {
   decal: Decal;
-  targetMesh: THREE.Mesh | null;
+  // targetMesh kept in the prop signature so callers don't need to change,
+  // but the flat-plane renderer no longer needs it.
+  targetMesh?: THREE.Mesh | null;
   isSelected?: boolean;
   onClick?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
 const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const SURFACE_OFFSET = 8; // cap-mesh units to push the plane outward, well clear of the shell
 
-function useTextTexture(text: string, color: string, font: string) {
-  const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
-  const texture = useMemo(() => new THREE.CanvasTexture(canvasRef.current), []);
+/**
+ * Renders a decal as a flat textured plane positioned and oriented along
+ * the cap surface normal. Avoids the DecalGeometry projection box, which
+ * is fragile against curved-surface clipping and bleeds onto the inner
+ * shell of the cap when the projection depth covers shell thickness.
+ *
+ * The plane:
+ *   - sits at `decal.position` plus a small offset along `decal.normal`
+ *     so it floats just above the fabric (no z-fighting),
+ *   - is oriented so its +Z axis matches `decal.normal`,
+ *   - is sized by `decal.scale[0]` x `decal.scale[1]`,
+ *   - is single-sided (FrontSide) so the inside of the cap stays clean.
+ */
+export default function DecalLayer({ decal, isSelected, onClick }: DecalLayerProps) {
+  const url = decal.type === 'image' && decal.url ? decal.url : TRANSPARENT_PIXEL;
+  const texture = useTexture(url);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = 2048;
-    canvas.height = 1024;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const lines = text.split('\n').filter(Boolean);
-    const maxLen = Math.max(...lines.map((line) => line.length), 8);
-    let fontSize = maxLen > 16 ? 150 : maxLen > 10 ? 190 : 240;
-
-    const stack = toFontStack(font);
-    ctx.font = `900 ${fontSize}px ${stack}`;
-    const widest = lines.reduce((best, line) => (line.length > best.length ? line : best), lines[0] || '');
-    const measured = ctx.measureText(widest).width || 1;
-
-    if (measured > canvas.width * 0.88) {
-      fontSize = Math.floor((fontSize * canvas.width * 0.88) / measured);
-    }
-
-    const lineHeight = fontSize * 1.15;
-    const startY = canvas.height * 0.5 - ((lines.length - 1) * lineHeight) / 2;
-
-    ctx.font = `900 ${fontSize}px ${stack}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = color || '#ffffff';
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-    ctx.lineWidth = Math.max(4, fontSize * 0.05);
-
-    lines.forEach((line, index) => {
-      const y = startY + index * lineHeight;
-      ctx.strokeText(line, canvas.width * 0.5, y);
-      ctx.fillText(line, canvas.width * 0.5, y);
-    });
-
+  useMemo(() => {
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.flipY = false;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.needsUpdate = true;
-  }, [text, color, font, texture]);
+    return null;
+  }, [texture]);
 
-  return texture;
-}
-
-/** Generate a grayscale bump texture from a color texture for embroidered/raised look */
-function useBumpFromTexture(sourceTexture: THREE.Texture): THREE.CanvasTexture | null {
-  const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
-  const bumpTex = useMemo(() => {
-    const t = new THREE.CanvasTexture(canvasRef.current);
-    t.colorSpace = THREE.LinearSRGBColorSpace;
-    return t;
-  }, []);
-
-  useEffect(() => {
-    const img = sourceTexture.image as HTMLImageElement | HTMLCanvasElement | undefined;
-    if (!img || !(img instanceof HTMLImageElement ? img.complete && img.naturalWidth > 0 : true)) return;
-
-    const w = (img as HTMLImageElement).naturalWidth || (img as HTMLCanvasElement).width || 256;
-    const h = (img as HTMLImageElement).naturalHeight || (img as HTMLCanvasElement).height || 256;
-
-    const canvas = canvasRef.current;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(img, 0, 0, w, h);
-    const data = ctx.getImageData(0, 0, w, h);
-    const px = data.data;
-
-    // Convert to grayscale bump: opaque pixels = raised, transparent = flat
-    for (let i = 0; i < px.length; i += 4) {
-      const alpha = px[i + 3] / 255;
-      // Luminance-weighted grayscale, boosted by alpha
-      const lum = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
-      const bump = Math.min(255, Math.floor(alpha * (0.5 + lum * 0.5) * 255));
-      px[i] = bump;
-      px[i + 1] = bump;
-      px[i + 2] = bump;
-      px[i + 3] = 255;
-    }
-
-    ctx.putImageData(data, 0, 0);
-    bumpTex.needsUpdate = true;
-  }, [sourceTexture, bumpTex]);
-
-  return bumpTex;
-}
-
-export default function DecalLayer({ decal, targetMesh, isSelected, onClick }: DecalLayerProps) {
-  const targetMeshRef = useRef<THREE.Mesh>(null!);
-  const imageTexture = useTexture(decal.type === 'image' && decal.url ? decal.url : TRANSPARENT_PIXEL);
-  const textTexture = useTextTexture(decal.text || '', decal.color || '#ffffff', decal.font || 'Vinegar');
-  const activeTexture = decal.type === 'image' ? imageTexture : textTexture;
-  const bumpTexture = useBumpFromTexture(activeTexture);
-
-  useEffect(() => {
-    imageTexture.colorSpace = THREE.SRGBColorSpace;
-    imageTexture.wrapS = THREE.ClampToEdgeWrapping;
-    imageTexture.wrapT = THREE.ClampToEdgeWrapping;
-    imageTexture.needsUpdate = true;
-  }, [imageTexture]);
-
-  const spin = decal.spin ?? decal.rotation?.[2] ?? 0;
-  const decalRotation = useMemo((): [number, number, number] => {
+  const { position, rotation } = useMemo(() => {
     const normal = new THREE.Vector3(...(decal.normal || [0, 0, 1]));
     if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1);
     normal.normalize();
@@ -133,55 +50,55 @@ export default function DecalLayer({ decal, targetMesh, isSelected, onClick }: D
       new THREE.Vector3(0, 0, 1),
       normal,
     );
+    const spin = decal.spin ?? decal.rotation?.[2] ?? 0;
     const spinQ = new THREE.Quaternion().setFromAxisAngle(normal, spin);
     const finalQ = basis.multiply(spinQ);
     const euler = new THREE.Euler().setFromQuaternion(finalQ);
-    return [euler.x, euler.y, euler.z];
-  }, [decal.normal, spin]);
 
-  const sizeX = Math.max(0.03, decal.scale?.[0] ?? 0.15);
+    const pos: [number, number, number] = [
+      decal.position[0] + normal.x * SURFACE_OFFSET,
+      decal.position[1] + normal.y * SURFACE_OFFSET,
+      decal.position[2] + normal.z * SURFACE_OFFSET,
+    ];
+    return {
+      position: pos,
+      rotation: [euler.x, euler.y, euler.z] as [number, number, number],
+    };
+  }, [decal.position, decal.normal, decal.spin, decal.rotation]);
+
+  const sizeX = Math.max(0.03, decal.scale?.[0] ?? 1);
   const sizeY = Math.max(0.03, decal.scale?.[1] ?? sizeX);
-  // Use explicit Z scale if provided, otherwise derive from X/Y
-  const projectionDepth = decal.scale?.[2] != null
-    ? Math.max(0.03, decal.scale[2])
-    : Math.max(0.03, Math.max(sizeX, sizeY) * 0.6);
-  const decalScale: [number, number, number] = [sizeX, sizeY, projectionDepth];
 
-  // Style-aware material properties for embroidery look
   const isGoldEmbroidery = decal.style === 'gold-embroidery';
   const isEmbroidery = decal.style === 'embroidery' || isGoldEmbroidery;
 
-  if (!targetMesh) return null;
-  targetMeshRef.current = targetMesh;
-
   return (
-    <ProjectedDecal
-      mesh={targetMeshRef}
-      position={decal.position}
-      rotation={decalRotation}
-      scale={decalScale}
+    <mesh
+      position={position}
+      rotation={rotation}
       onPointerDown={(e) => {
+        if (!onClick) return;
         e.stopPropagation();
-        onClick?.(e);
+        onClick(e);
       }}
+      renderOrder={isSelected ? 2 : 1}
     >
+      <planeGeometry args={[sizeX, sizeY]} />
       <meshStandardMaterial
-        map={activeTexture}
-        bumpMap={bumpTexture}
-        bumpScale={isGoldEmbroidery ? 4.5 : isEmbroidery ? 3.0 : 2.0}
+        map={texture}
         transparent
-        alphaTest={0.06}
+        alphaTest={0.04}
         depthTest
         depthWrite={false}
         side={THREE.FrontSide}
         polygonOffset
-        polygonOffsetFactor={isSelected ? -4 : -3}
-        polygonOffsetUnits={isSelected ? -4 : -3}
-        roughness={isGoldEmbroidery ? 0.25 : isEmbroidery ? 0.5 : 0.65}
-        metalness={isGoldEmbroidery ? 0.75 : isEmbroidery ? 0.3 : 0.15}
-        emissive={isSelected ? '#1f1f1f' : isGoldEmbroidery ? '#6B4500' : '#3D2200'}
-        emissiveIntensity={isSelected ? 0.3 : isGoldEmbroidery ? 0.3 : 0.12}
+        polygonOffsetFactor={isSelected ? -4 : -2}
+        polygonOffsetUnits={isSelected ? -4 : -2}
+        roughness={isGoldEmbroidery ? 0.25 : isEmbroidery ? 0.55 : 0.7}
+        metalness={isGoldEmbroidery ? 0.75 : isEmbroidery ? 0.25 : 0.1}
+        emissive={isSelected ? '#1f1f1f' : isGoldEmbroidery ? '#6B4500' : isEmbroidery ? '#3D2200' : '#000000'}
+        emissiveIntensity={isSelected ? 0.3 : isGoldEmbroidery ? 0.32 : isEmbroidery ? 0.14 : 0}
       />
-    </ProjectedDecal>
+    </mesh>
   );
 }

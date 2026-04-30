@@ -32,8 +32,18 @@ interface HatModelProps {
 }
 
 const MODEL_PATH = `${import.meta.env.BASE_URL}models/baseball_cap.glb`;
+const ATLAS_PATH = `${import.meta.env.BASE_URL}images/cap_decals_atlas.png`;
 const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const FABRIC_MATERIALS = new Set(['baseballCap', 'baseballcap', 'cap', 'hat', 'fabric']);
+
+// Decal IDs that are baked into cap_decals_atlas.png — skip live DecalLayer for these.
+const BAKED_DECAL_IDS = new Set([
+  'front-mega-text',
+  'back-eagle',
+  'back-crossed-feathers',
+  'back-panda',
+  'inside-out-out-label',
+]);
 
 function drawEmbroideryStitch(
   ctx: CanvasRenderingContext2D,
@@ -311,6 +321,22 @@ export default function HatModel({
     hatTexture.colorSpace = THREE.SRGBColorSpace;
   }
 
+  // Pre-baked decals atlas — applied to mainCap mesh as a multi-decal map.
+  // The atlas has transparent background; runtime shader mixes hatColor and
+  // atlas RGB based on atlas alpha (decal pixel alpha 1 → atlas; 0 → hatColor).
+  const atlasTex = useLoader(THREE.TextureLoader, ATLAS_PATH);
+  useEffect(() => {
+    atlasTex.colorSpace = THREE.SRGBColorSpace;
+    atlasTex.wrapS = THREE.ClampToEdgeWrapping;
+    atlasTex.wrapT = THREE.ClampToEdgeWrapping;
+    atlasTex.generateMipmaps = true;
+    atlasTex.minFilter = THREE.LinearMipmapLinearFilter;
+    atlasTex.magFilter = THREE.LinearFilter;
+    atlasTex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    atlasTex.flipY = true;
+    atlasTex.needsUpdate = true;
+  }, [atlasTex, gl]);
+
   const flagTextureUrl = flagCode ? `https://flagcdn.com/w160/${flagCode.toLowerCase()}.png` : TRANSPARENT_PIXEL;
   const flagTexture = useLoader(THREE.TextureLoader, flagTextureUrl);
 
@@ -543,6 +569,17 @@ export default function HatModel({
           if (hasCustomTexture && !isBand) {
             mat.map = hatTexture;
             mat.color.set('#ffffff');
+          } else if (isMainCap && !isBand && !useFabricTexture) {
+            mat.map = atlasTex;
+            mat.onBeforeCompile = (shader) => {
+              shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <map_fragment>',
+                `#ifdef USE_MAP
+                  vec4 atlasSample = texture2D( map, vMapUv );
+                  diffuseColor.rgb = mix( diffuseColor.rgb, atlasSample.rgb, atlasSample.a );
+                #endif`,
+              );
+            };
           }
 
           mat.roughness = 0.78;
@@ -569,7 +606,7 @@ export default function HatModel({
         mesh.material = remat(mesh.material);
       }
     });
-  }, [capMesh, hatColor, bandColor, hatTexture, hasCustomTexture, useFabricTexture, mainCapMesh]);
+  }, [capMesh, hatColor, bandColor, hatTexture, hasCustomTexture, useFabricTexture, mainCapMesh, atlasTex]);
 
   // UV pointer bridge for Fabric interaction
   const uvBridge = useUvPointerBridge({
@@ -703,17 +740,19 @@ export default function HatModel({
           />
         )}
 
-        {decals.map((decal) => (
-          <DecalLayer
-            key={decal.id}
-            decal={decal}
-            targetMesh={getTargetMesh(decal)}
-            isSelected={selectedDecalId === decal.id}
-            onClick={() => {
-              onDecalSelect?.(decal.id);
-            }}
-          />
-        ))}
+        {decals
+          .filter((decal) => !BAKED_DECAL_IDS.has(decal.id))
+          .map((decal) => (
+            <DecalLayer
+              key={decal.id}
+              decal={decal}
+              targetMesh={getTargetMesh(decal)}
+              isSelected={selectedDecalId === decal.id}
+              onClick={() => {
+                onDecalSelect?.(decal.id);
+              }}
+            />
+          ))}
 
         {/* Front text - only when NOT using Fabric texture */}
         {!useFabricTexture && mainCapDecalTarget && frontTexture && (

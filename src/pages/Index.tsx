@@ -49,6 +49,13 @@ export default function Index() {
   const scheme = useColorScheme();
   const config = scheme === 'dark' ? HAT_BLACK : HAT_WHITE;
 
+  // Query-string opt-out used by E2E tests so the cap starts from a known
+  // orientation (default OrbitControls camera) rather than a random angle
+  // produced by auto-rotate before the test can click Pause.
+  const autoRotateEnabled =
+    typeof window === 'undefined' ||
+    new URLSearchParams(window.location.search).get('spin') !== '0';
+
   const navigate = useNavigate();
   const { addItem } = useCart();
   const price = getHatPrice(config);
@@ -130,7 +137,7 @@ export default function Index() {
             font={config.font}
             flagCode={config.flagCode}
             decals={config.decals}
-            autoRotate
+            autoRotate={autoRotateEnabled}
             className="w-full h-full"
           />
         </div>
@@ -270,7 +277,7 @@ export default function Index() {
                 font={config.font}
                 flagCode={config.flagCode}
                 decals={config.decals}
-                autoRotate
+                autoRotate={autoRotateEnabled}
                 className="w-full h-full"
               />
             </div>
