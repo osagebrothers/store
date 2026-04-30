@@ -363,9 +363,6 @@ hit_log['mega_R'] = paint_in_uv_bbox(
     mega_R_bbox, dimg['mega'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_right], flip_v=True)
 
-# PANDA on cap-LEFT side panel — paint into the SIDE-face UV bbox.
-# Center the panda within the available area, inset 20% to keep it small
-# and 100% within the visible panel surface (no clipping).
 def center_in_bbox(b, frac_w, frac_h):
     """Return a sub-bbox centered in b with given width/height fractions."""
     if not b: return None
@@ -376,20 +373,45 @@ def center_in_bbox(b, frac_w, frac_h):
     hh = bh * frac_h / 2
     return (cu - hw, cv - hh, cu + hw, cv + hh)
 
-# Side decals: 60% of the side-panel UV bbox (small, centered, embroidery-sized)
-panda_bbox = center_in_bbox(side_uv_L, 0.6, 0.6)
-eagle_bbox = center_in_bbox(side_uv_R, 0.6, 0.6)
-hit_log['panda'] = paint_in_uv_bbox(
-    panda_bbox, dimg['panda'], 0.0, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_left], flip_v=True)
+def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
+    """Sub-bbox of size (frac_w, frac_h) anchored at (anchor_u, anchor_v) in b.
+    anchor_u/v in [0,1]: 0=lo, 1=hi edge of b. Width/height clipped to bbox."""
+    if not b: return None
+    u_lo, v_lo, u_hi, v_hi = b
+    bw, bh = u_hi - u_lo, v_hi - v_lo
+    cw, ch = bw * frac_w, bh * frac_h
+    cu = u_lo + anchor_u * bw
+    cv = v_lo + anchor_v * bh
+    u0 = max(u_lo, cu - cw/2); u1 = min(u_hi, cu + cw/2)
+    v0 = max(v_lo, cv - ch/2); v1 = min(v_hi, cv + ch/2)
+    return (u0, v0, u1, v1)
+
+# UV-V mapping: V near panel V_max ≈ apex, V near V_min ≈ strap/back-bottom.
+# back_face_uv_bbox covers the rear-facing band — within it:
+#   anchor_v=0.20 → low (just above strap/hole)
+#   anchor_v=0.55 → mid (above hole)
+#   anchor_v=0.85 → high (near apex)
+# anchor_u: 0.0 = panel-outer edge, 1.0 = center seam
+# Eagle on cap-LEFT back panel (viewer sees on LEFT when looking at back).
+# Panda on cap-RIGHT back panel. Both anchored slightly off the seam, at low V
+# (near strap) so they sit on the lower-back corners.
+eagle_bbox = anchor_in_bbox(back_uv_L, frac_w=0.40, frac_h=0.42,
+                            anchor_u=0.45, anchor_v=0.30)
+panda_bbox = anchor_in_bbox(back_uv_R, frac_w=0.40, frac_h=0.42,
+                            anchor_u=0.55, anchor_v=0.30)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_right], flip_v=True)
+    tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
+hit_log['panda'] = paint_in_uv_bbox(
+    panda_bbox, dimg['panda'], 0.0, 1.0, 0.0, 1.0,
+    tris_by_iid[iid_right], flip_v=True) if panda_bbox else 0
 
-# FEATHERS on cap-BACK — split at panel seam.
-# Use the back-face UV bboxes; each half occupies one panel.
-feathers_L_bbox = center_in_bbox(back_uv_L, 0.7, 0.6) if back_uv_L else None
-feathers_R_bbox = center_in_bbox(back_uv_R, 0.7, 0.6) if back_uv_R else None
+# FEATHERS centered above the back-hat-hole, split across the cap-center seam.
+# Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
+feathers_L_bbox = anchor_in_bbox(back_uv_L, frac_w=0.45, frac_h=0.40,
+                                 anchor_u=0.95, anchor_v=0.42)
+feathers_R_bbox = anchor_in_bbox(back_uv_R, frac_w=0.45, frac_h=0.40,
+                                 anchor_u=0.05, anchor_v=0.42)
 hit_log['feathers_L'] = paint_in_uv_bbox(
     feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
