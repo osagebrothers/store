@@ -30,7 +30,7 @@ export interface Decal {
 
 export type TextStyle = 'flat' | 'embroidery' | 'gold-embroidery' | 'puff-3d';
 
-export type Colorway = 'black' | 'white';
+export type Colorway = 'black' | 'white' | 'pink';
 
 export interface HatConfig {
   id: string;
@@ -134,17 +134,22 @@ const BACK_PANDA_DECAL: Decal = {
 };
 
 export function buildHat(colorway: Colorway): HatConfig {
-  const isBlack = colorway === 'black';
+  const colors: Record<Colorway, { hat: string; text: string }> = {
+    black: { hat: '#000000', text: '#FFD700' },
+    white: { hat: '#FFFFFF', text: '#FFD700' },
+    pink: { hat: '#F4C9D4', text: '#B76E79' },
+  };
+  const c = colors[colorway];
   return {
     id: `osage-${colorway}`,
     colorway,
-    hatColor: isBlack ? '#000000' : '#FFFFFF',
-    bandColor: isBlack ? '#000000' : '#FFFFFF',
+    hatColor: c.hat,
+    bandColor: c.hat,
     text: '',
     backText: '',
     brimText: '',
     font: 'Vinegar',
-    textColor: '#FFD700',
+    textColor: c.text,
     textStyle: 'gold-embroidery',
     size: 'M',
     decals: [
@@ -159,5 +164,6 @@ export function buildHat(colorway: Colorway): HatConfig {
 
 export const HAT_BLACK: HatConfig = buildHat('black');
 export const HAT_WHITE: HatConfig = buildHat('white');
+export const HAT_PINK: HatConfig = buildHat('pink');
 
 export const DEFAULT_HAT: HatConfig = HAT_BLACK;

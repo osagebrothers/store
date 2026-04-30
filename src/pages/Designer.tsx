@@ -3,14 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import HatScene from '@/components/HatScene';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/store/cartStore';
-import { Colorway, HAT_BLACK, HAT_PRICE, HAT_WHITE } from '@/types/hat';
+import { Colorway, HAT_BLACK, HAT_PINK, HAT_PRICE, HAT_WHITE } from '@/types/hat';
+
+const HAT_BY_COLORWAY: Record<Colorway, typeof HAT_BLACK> = {
+  black: HAT_BLACK,
+  white: HAT_WHITE,
+  pink: HAT_PINK,
+};
 
 export default function Designer() {
   const [colorway, setColorway] = useState<Colorway>('black');
   const navigate = useNavigate();
   const { addItem } = useCart();
 
-  const config = useMemo(() => (colorway === 'black' ? HAT_BLACK : HAT_WHITE), [colorway]);
+  const config = useMemo(() => HAT_BY_COLORWAY[colorway], [colorway]);
 
   const handleAdd = () => {
     addItem(config);
@@ -45,37 +51,35 @@ export default function Designer() {
 
           <div className="space-y-3">
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">Colorway</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setColorway('black')}
-                className={`h-14 rounded-xl border transition-colors text-xs uppercase tracking-[0.2em] font-bold ${
-                  colorway === 'black'
-                    ? 'border-white bg-white text-black'
-                    : 'border-white/15 text-white/60 hover:border-white/30'
-                }`}
-              >
-                Black
-              </button>
-              <button
-                onClick={() => setColorway('white')}
-                className={`h-14 rounded-xl border transition-colors text-xs uppercase tracking-[0.2em] font-bold ${
-                  colorway === 'white'
-                    ? 'border-white bg-white text-black'
-                    : 'border-white/15 text-white/60 hover:border-white/30'
-                }`}
-              >
-                White
-              </button>
+            <div className="grid grid-cols-3 gap-2">
+              {(['black', 'white', 'pink'] as Colorway[]).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColorway(c)}
+                  className={`h-14 rounded-xl border transition-colors text-xs uppercase tracking-[0.2em] font-bold ${
+                    colorway === c
+                      ? 'border-white bg-white text-black'
+                      : 'border-white/15 text-white/60 hover:border-white/30'
+                  }`}
+                >
+                  {c.charAt(0).toUpperCase() + c.slice(1)}
+                </button>
+              ))}
             </div>
+            {colorway === 'pink' && (
+              <p className="text-[11px] text-white/50">Rose-gold embroidery on dusty pink</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">Details</p>
             <ul className="text-sm text-white/65 space-y-1.5 leading-relaxed">
               <li>Premium ball cap</li>
-              <li>Gold embroidery — front</li>
+              <li>{colorway === 'pink' ? 'Rose-gold' : 'Gold'} embroidery — front</li>
               <li>"Out, Out" inside label</li>
               <li>One size, structured fit</li>
+              <li>Free shipping · delivery within 30 days</li>
+              <li>7-day returns</li>
             </ul>
           </div>
 
