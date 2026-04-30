@@ -131,34 +131,31 @@ def sample(img, sx, sy):
 # MEGA aspect 1024:407 ≈ 2.515.
 
 decals = [
-    # FRONT face (+y direction). Empirically: mesh +y → world +z (visible from default camera).
-    # Camera looks toward -z = mesh -y direction; viewer's right = world +x = mesh +x.
+    # FRONT face (mesh +y). MAKE EARTH GREAT AGAIN — bold, fills the front
+    # like a Trump MAGA cap. Positioned just above the brim line.
     dict(name='mega', img=dimg['mega'],
-         center=Vector((0.0, +3.5, 2.6)),
+         center=Vector((0.0, +3.5, 2.0)),
          du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=3.2, half_h=3.2/2.515,
-         x_lo=-4.0, x_hi=+4.0, y_lo=+1.0, y_hi=+5.0, z_lo=0.5, z_hi=5.4),
-    # CAP-LEFT side panel (-x direction). Viewer at mesh -x looking +x; right = mesh -y (back).
-    # Wait: empirically mesh -y is back, so viewer's right = mesh -y. But cross product gives +y for viewer at -x.
-    # Going with cross product math: forward=+x, up=+z, right = forward × up = +x × +z = -y.
+         half_w=3.0, half_h=3.0/2.515,
+         x_lo=-3.5, x_hi=+3.5, y_lo=+1.5, y_hi=+5.0, z_lo=0.5, z_hi=3.5),
+    # CAP-LEFT side panel (mesh -x). Embroidered mascot, well-proportioned.
     dict(name='panda', img=dimg['panda'],
-         center=Vector((-3.6, 0.0, 2.6)),
+         center=Vector((-3.7, 0.0, 1.8)),
          du=Vector((0, -1, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.5, half_h=1.5,
-         x_lo=-5.0, x_hi=-1.5, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
-    # CAP-RIGHT side panel (+x direction). Viewer at mesh +x looking -x; forward=-x, up=+z, right=-x × +z = +y.
+         half_w=1.1, half_h=1.1,
+         x_lo=-5.0, x_hi=-1.8, y_lo=-1.4, y_hi=+1.4, z_lo=0.5, z_hi=3.2),
+    # CAP-RIGHT side panel (mesh +x). Mirror of panda.
     dict(name='eagle', img=dimg['eagle'],
-         center=Vector((+3.6, 0.0, 2.6)),
+         center=Vector((+3.7, 0.0, 1.8)),
          du=Vector((0, +1, 0)), dv=Vector((0, 0, 1)),
-         half_w=1.5, half_h=1.5,
-         x_lo=+1.5, x_hi=+5.0, y_lo=-2.0, y_hi=+2.0, z_lo=0.6, z_hi=4.8),
-    # BACK panel (-y direction, strap). Viewer at mesh -y looking +y; forward=+y, up=+z, right=+y × +z = +x.
-    # Big decal w/ tight AABB means we only paint the center of the feathers image (where the X is).
+         half_w=1.1, half_h=1.1,
+         x_lo=+1.8, x_hi=+5.0, y_lo=-1.4, y_hi=+1.4, z_lo=0.5, z_hi=3.2),
+    # BACK panel center (mesh -y). Crossed feathers — proportional embroidery.
     dict(name='feathers', img=dimg['feathers'],
-         center=Vector((0.0, -3.4, 3.0)),
+         center=Vector((0.0, -3.7, 1.8)),
          du=Vector((+1, 0, 0)), dv=Vector((0, 0, 1)),
-         half_w=2.5, half_h=2.5,
-         x_lo=-1.4, x_hi=+1.4, y_lo=-5.0, y_hi=-2.0, z_lo=1.6, z_hi=4.6),
+         half_w=1.4, half_h=1.4,
+         x_lo=-1.6, x_hi=+1.6, y_lo=-5.0, y_hi=-1.8, z_lo=0.5, z_hi=3.2),
 ]
 
 atlas = [0.0] * (TEX * TEX * 4)
