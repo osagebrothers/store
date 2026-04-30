@@ -400,11 +400,13 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
 # To go LOW on the cap (above strap), use lower V (closer to 0.50).
 # To go HIGH (toward apex), use higher V (toward 0.58).
 # User wants eagle+panda DOWN → keep V near low-mid back range.
-eagle_bbox = (0.205, 0.515, 0.305, 0.575)   # U,V,U,V (lo,lo,hi,hi)
-panda_bbox = (0.605, 0.515, 0.705, 0.575)
-# Sanity check: leave the helper-derived ones around but unused.
-_unused_eagle_anchor = anchor_in_bbox(back_uv_L, 0.55, 0.32, 0.40, 0.18)
-_unused_panda_anchor = anchor_in_bbox(back_uv_R, 0.55, 0.32, 0.60, 0.18)
+# Back panel UV ranges (from script measurement):
+#   outer-LEFT  back: U=[0.277, 0.452], V=[0.441, 0.582]
+#   outer-RIGHT back: U=[0.470, 0.644], V=[0.446, 0.579]
+# Push eagle/panda toward outer corners (LOW U on left, HIGH U on right).
+# Use mid-low V (≈0.50–0.55) for "above strap, lower-back" placement.
+eagle_bbox = (0.290, 0.495, 0.380, 0.560)
+panda_bbox = (0.545, 0.495, 0.635, 0.560)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
@@ -414,9 +416,9 @@ hit_log['panda'] = paint_in_uv_bbox(
 
 # FEATHERS centered above the back-hat-hole, split across the cap-center seam.
 # Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
-# Feathers split across the cap-center seam, slightly above eagle/panda.
-feathers_L_bbox = (0.355, 0.530, 0.450, 0.595)
-feathers_R_bbox = (0.470, 0.530, 0.560, 0.595)
+# Feathers centered above the hat-hole, just below eagle/panda level.
+feathers_L_bbox = (0.395, 0.460, 0.450, 0.520)
+feathers_R_bbox = (0.470, 0.460, 0.525, 0.520)
 hit_log['feathers_L'] = paint_in_uv_bbox(
     feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
