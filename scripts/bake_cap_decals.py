@@ -392,20 +392,19 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
     return (u0, v0, u1, v1)
 
 # Eagle on cap-LEFT back panel, panda on cap-RIGHT back panel.
-# Hardcoded UV bboxes verified by 3D-position diagnostic to land on
-# the truly back-facing surface (y<-2.5) at mid-Z (1.5<z<3.5):
-#   outer-LEFT  V=[0.50,0.55] → 3D X[-3.91,0] Y[-4.33,-2.62] Z[0.07,2.69]
-#   outer-LEFT  V=[0.55,0.58] → 3D X[-3.54,0] Y[-3.77,-2.51] Z[1.62,3.99]
-# Mirror for cap-RIGHT outer panel via U reflection.
-# To go LOW on the cap (above strap), use lower V (closer to 0.50).
-# To go HIGH (toward apex), use higher V (toward 0.58).
-# User wants eagle+panda DOWN → keep V near low-mid back range.
-# Eagle on back-LEFT corner, panda on back-RIGHT corner.
-# v4 test confirmed V=[0.515, 0.575] U=[0.205, 0.305] renders mid-center-back.
-# Shift U outward (toward LOW U on outer-left, HIGH U on outer-right) for corners.
-# Lower V slightly for "down on back" placement.
-eagle_bbox = (0.165, 0.500, 0.265, 0.560)
-panda_bbox = (0.685, 0.500, 0.785, 0.560)
+# Diagnostic shows the actual back-face UV footprints are:
+#   back L: U=[0.2772, 0.4516] V=[0.4414, 0.5825]
+#   back R: U=[0.4704, 0.6440] V=[0.4465, 0.5791]
+# U mapping (within back face):
+#   outer-LEFT: low U=back-side wraparound, high U=cap-center seam
+#   outer-RIGHT: low U=cap-center seam, high U=back-side wraparound
+# V mapping: low V=strap edge (BOTTOM), high V=apex (TOP)
+# User wants eagle+panda at BOTTOM CORNERS of back (just above strap).
+# Eagle on left-back corner: outer-LEFT panel, low U end (back-side edge).
+# Panda on right-back corner: outer-RIGHT panel, high U end (back-side edge).
+# V=[0.455, 0.510] = bottom-third of back face, ~14px above strap line.
+eagle_bbox = (0.290, 0.455, 0.385, 0.510)
+panda_bbox = (0.535, 0.455, 0.630, 0.510)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
