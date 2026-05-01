@@ -400,10 +400,12 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
 # To go LOW on the cap (above strap), use lower V (closer to 0.50).
 # To go HIGH (toward apex), use higher V (toward 0.58).
 # User wants eagle+panda DOWN → keep V near low-mid back range.
-# DIAGNOSTIC: paint giant eagle covering most of back-LEFT panel UV
-# to find which UV region actually renders on visible back of cap.
-eagle_bbox = (0.18, 0.10, 0.45, 0.55)
-panda_bbox = (0.50, 0.10, 0.77, 0.55)
+# Eagle on back-LEFT corner, panda on back-RIGHT corner.
+# v4 test confirmed V=[0.515, 0.575] U=[0.205, 0.305] renders mid-center-back.
+# Shift U outward (toward LOW U on outer-left, HIGH U on outer-right) for corners.
+# Lower V slightly for "down on back" placement.
+eagle_bbox = (0.165, 0.500, 0.265, 0.560)
+panda_bbox = (0.685, 0.500, 0.785, 0.560)
 hit_log['eagle'] = paint_in_uv_bbox(
     eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
@@ -413,9 +415,9 @@ hit_log['panda'] = paint_in_uv_bbox(
 
 # FEATHERS centered above the back-hat-hole, split across the cap-center seam.
 # Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
-# Disable feathers during diagnostic
-feathers_L_bbox = None
-feathers_R_bbox = None
+# Feathers split centered, slightly above hat-hole / strap level.
+feathers_L_bbox = (0.380, 0.470, 0.450, 0.530)
+feathers_R_bbox = (0.470, 0.470, 0.540, 0.530)
 hit_log['feathers_L'] = paint_in_uv_bbox(
     feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
     tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
