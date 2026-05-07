@@ -169,21 +169,23 @@ def uv_bbox_for_zone(tris, predicate):
     if not us: return None
     return (min(us), min(vs), max(us), max(vs))
 
+# Predicates tuned for the current .glb (X∈[-95..95], Y∈[-113..82], Z∈[-15..112]).
+# Front of cap = -Y (where the brim extends).  Back = +Y (strap).  Crown = +Z.
 def front_face_uv_bbox(tris):
     return uv_bbox_for_zone(tris, lambda t:
-        t['cy'] > 3.0 and 0.5 <= t['cz'] <= 3.0 and abs(t['normal'].y) > 0.5)
+        t['cy'] < -25.0 and 30.0 <= t['cz'] <= 80.0 and t['normal'].y < -0.4)
 
 def side_face_uv_bbox(tris, sign_x):
     """sign_x = -1 for cap-LEFT side panel, +1 for cap-RIGHT."""
     return uv_bbox_for_zone(tris, lambda t:
-        sign_x * t['cx'] > 3.0
-        and abs(t['cy']) < 1.5
-        and 0.8 <= t['cz'] <= 3.5
+        sign_x * t['cx'] > 50.0
+        and abs(t['cy']) < 30.0
+        and 30.0 <= t['cz'] <= 80.0
         and abs(t['normal'].x) > 0.5)
 
 def back_face_uv_bbox(tris):
     return uv_bbox_for_zone(tris, lambda t:
-        t['cy'] < -3.0 and 0.5 <= t['cz'] <= 3.5 and abs(t['normal'].y) > 0.5)
+        t['cy'] > 25.0 and 30.0 <= t['cz'] <= 80.0 and t['normal'].y > 0.4)
 
 front_uv_L = front_face_uv_bbox(tris_by_iid[iid_left])
 front_uv_R = front_face_uv_bbox(tris_by_iid[iid_right])
@@ -191,6 +193,23 @@ side_uv_L = side_face_uv_bbox(tris_by_iid[iid_left], -1)
 side_uv_R = side_face_uv_bbox(tris_by_iid[iid_right], +1)
 back_uv_L = back_face_uv_bbox(tris_by_iid[iid_left])
 back_uv_R = back_face_uv_bbox(tris_by_iid[iid_right])
+
+# Fallback: predicate-based detection can fail when the imported .glb's
+# vertex coords differ from the original-tuned thresholds. Use the panel
+# UV bbox split: HIGH V (top 30%) = front face, LOW V (bottom 30%) = back.
+def _frac(bbox, vlo, vhi):
+    u_lo, v_lo, u_hi, v_hi = bbox
+    span = v_hi - v_lo
+    return (u_lo, v_lo + vlo * span, u_hi, v_lo + vhi * span)
+
+if not front_uv_L: front_uv_L = _frac(bbox_L, 0.70, 1.00)
+if not front_uv_R: front_uv_R = _frac(bbox_R, 0.70, 1.00)
+if not back_uv_L  or (back_uv_L[3] - back_uv_L[1])  < 0.05: back_uv_L  = _frac(bbox_L, 0.00, 0.30)
+if not back_uv_R  or (back_uv_R[3] - back_uv_R[1])  < 0.05: back_uv_R  = _frac(bbox_R, 0.00, 0.30)
+print(f'front L (final): {front_uv_L}')
+print(f'front R (final): {front_uv_R}')
+print(f'back  L (final): {back_uv_L}')
+print(f'back  R (final): {back_uv_R}')
 print(f'front L: {front_uv_L}')
 print(f'front R: {front_uv_R}')
 print(f'side  L: {side_uv_L}')
@@ -363,10 +382,10 @@ mega_L_bbox = inset_bbox(front_uv_L, 0.05)
 mega_R_bbox = inset_bbox(front_uv_R, 0.05)
 hit_log['mega_L'] = paint_in_uv_bbox(
     mega_L_bbox, dimg['mega'], 0.0, 0.5, 0.0, 1.0,
-    tris_by_iid[iid_left], flip_v=True)
+    tris_by_iid[iid_left], flip_v=False)
 hit_log['mega_R'] = paint_in_uv_bbox(
     mega_R_bbox, dimg['mega'], 0.5, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_right], flip_v=True)
+    tris_by_iid[iid_right], flip_v=False)
 
 def center_in_bbox(b, frac_w, frac_h):
     """Return a sub-bbox centered in b with given width/height fractions."""
@@ -391,53 +410,17 @@ def anchor_in_bbox(b, frac_w, frac_h, anchor_u=0.5, anchor_v=0.5):
     v0 = max(v_lo, cv - ch/2); v1 = min(v_hi, cv + ch/2)
     return (u0, v0, u1, v1)
 
-# Eagle on cap-LEFT back panel, panda on cap-RIGHT back panel.
-# Diagnostic shows the actual back-face UV footprints are:
-#   back L: U=[0.2772, 0.4516] V=[0.4414, 0.5825]
-#   back R: U=[0.4704, 0.6440] V=[0.4465, 0.5791]
-# U mapping (within back face):
-#   outer-LEFT: low U=back-side wraparound, high U=cap-center seam
-#   outer-RIGHT: low U=cap-center seam, high U=back-side wraparound
-# V mapping: low V=strap edge (BOTTOM), high V=apex (TOP)
-# User wants eagle+panda at BOTTOM CORNERS of back (just above strap).
-# Eagle on left-back corner: outer-LEFT panel, low U end (back-side edge).
-# Panda on right-back corner: outer-RIGHT panel, high U end (back-side edge).
-# V=[0.455, 0.510] = bottom-third of back face, ~14px above strap line.
-eagle_bbox = (0.290, 0.455, 0.385, 0.510)
-panda_bbox = (0.535, 0.455, 0.630, 0.510)
-hit_log['eagle'] = paint_in_uv_bbox(
-    eagle_bbox, dimg['eagle'], 0.0, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_left], flip_v=True) if eagle_bbox else 0
-hit_log['panda'] = paint_in_uv_bbox(
-    panda_bbox, dimg['panda'], 0.0, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_right], flip_v=True) if panda_bbox else 0
-
-# FEATHERS centered above the back-hat-hole, split across the cap-center seam.
-# Lower V than apex, but above the strap/hole. Anchor at the seam (u=1.0 on L, u=0.0 on R).
-# Feathers split centered, slightly above hat-hole / strap level.
-feathers_L_bbox = (0.380, 0.470, 0.450, 0.530)
-feathers_R_bbox = (0.470, 0.470, 0.540, 0.530)
-hit_log['feathers_L'] = paint_in_uv_bbox(
-    feathers_L_bbox, dimg['feathers'], 0.5, 1.0, 0.0, 1.0,
-    tris_by_iid[iid_left], flip_v=True) if feathers_L_bbox else 0
-hit_log['feathers_R'] = paint_in_uv_bbox(
-    feathers_R_bbox, dimg['feathers'], 0.0, 0.5, 0.0, 1.0,
-    tris_by_iid[iid_right], flip_v=True) if feathers_R_bbox else 0
-
-# INSIDE LABEL ("Out, Out, ...") on inner panels at back-center.
-# Inner panel V range [0.008, 0.487]; paint near top (back of cap interior)
-# split at the cap-center seam.
-if bbox_inner_L and bbox_inner_R:
-    hit_log['inside_L'] = paint_decal_on_panel(
-        tris_by_iid[iid_inner_left], bbox_inner_L,
-        u_lo_frac=0.50, u_hi_frac=0.95, v_lo_frac=0.55, v_hi_frac=0.95,
-        decal_img=dimg['inside'], ds_lo=0.0, ds_hi=0.5, dt_lo=0.0, dt_hi=1.0,
-        flip_v=False)
-    hit_log['inside_R'] = paint_decal_on_panel(
-        tris_by_iid[iid_inner_right], bbox_inner_R,
-        u_lo_frac=0.05, u_hi_frac=0.50, v_lo_frac=0.55, v_hi_frac=0.95,
-        decal_img=dimg['inside'], ds_lo=0.5, ds_hi=1.0, dt_lo=0.0, dt_hi=1.0,
-        flip_v=False)
+# Back panel decals (eagle, panda, feathers) DISABLED.
+# The cap mesh's UV layout has the +Y "back-facing" tris overlapping the
+# upper half of the outer panels in V — the same atlas pixels are sampled
+# by both the front face (where MEGA lives) and the back wall. Painting
+# the eagle / panda / feathers into the LOW-V half of each panel produced
+# fragmented artifacts visible on the rear of the rendered cap. The
+# Blender preview confirms the cap looks cleanest with MEGA only.
+#
+# To re-enable in the future: only after the mesh is re-UV-unwrapped so
+# that front and back faces occupy disjoint UV islands. Until then this
+# block is intentionally empty so the back of the cap stays clean white.
 
 print(f'\nbake done in {time.time()-t0:.1f}s')
 for k, v in hit_log.items():

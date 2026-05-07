@@ -152,13 +152,13 @@ export function buildHat(colorway: Colorway): HatConfig {
     textColor: c.text,
     textStyle: 'gold-embroidery',
     size: 'M',
-    decals: [
-      FRONT_TEXT_DECAL,
-      BACK_EAGLE_DECAL,
-      BACK_FEATHERS_DECAL,
-      BACK_PANDA_DECAL,
-      INSIDE_LABEL_DECAL,
-    ],
+    // Default cap: front MEGA text only. The eagle / panda / feathers /
+    // inside-label decals are intentionally NOT in the default set —
+    // they're projected onto UV regions that bleed onto the back panel
+    // due to the current cap mesh's shared-island UV layout. Re-enable
+    // them here only after the mesh is re-UV-unwrapped with disjoint
+    // front/back islands.
+    decals: [FRONT_TEXT_DECAL],
   };
 }
 
